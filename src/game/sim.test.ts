@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chooseOption, landingOutcome, newCruise, newLanding, SITES, stepCruise, stepLanding, CRUISE_SECONDS } from "./sim";
+import { canLaunch, chooseOption, DEFAULT_LOADOUT, landingOutcome, loadoutMass, newCruise, newLanding, SITES, stepCruise, stepLanding, CRUISE_SECONDS } from "./sim";
 
 describe("landing rules", () => {
   it("touching down at or under the site's safe speed is a safe landing", () => {
@@ -42,5 +42,26 @@ describe("cruise rules", () => {
     }
     expect(c.progress).toBe(1);
     expect(c.failed).toBeNull();
+  });
+});
+
+describe("spacecraft design", () => {
+  it("the standard design weighs exactly the 4,000 kg the rocket can carry", () => {
+    expect(loadoutMass(DEFAULT_LOADOUT)).toBe(4000);
+    expect(canLaunch(DEFAULT_LOADOUT)).toBe(true);
+  });
+  it("a design over 4,000 kg cannot launch", () => {
+    expect(canLaunch({ ...DEFAULT_LOADOUT, fuel: 2 })).toBe(false);
+  });
+  it("a large fuel tank starts at 100% fuel, a small one at 75%", () => {
+    expect(newCruise({ ...DEFAULT_LOADOUT, fuel: 2 }).t.fuel).toBe(100);
+    expect(newCruise({ ...DEFAULT_LOADOUT, fuel: 0 }).t.fuel).toBe(75);
+  });
+  it("thick shielding cuts solar flare damage to 0.6x", () => {
+    const c = newCruise({ ...DEFAULT_LOADOUT, shield: 2 });
+    c.active = 3;
+    c.nextEvent = 3;
+    chooseOption(c, 2); // keep flying normally: -28 hull
+    expect(c.t.hull).toBeCloseTo(100 - 28 * 0.6);
   });
 });

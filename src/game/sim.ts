@@ -30,6 +30,36 @@ export const TRIP_DAYS = 4;
 export const START: Telemetry = { fuel: 100, power: 100, temp: 22, signal: 100, hull: 100 };
 const BASE_DRAIN: Telemetry = { fuel: -0.12, power: -0.15, temp: 0, signal: -0.4, hull: 0 };
 
+// ---------------- Spacecraft design (loadout) ----------------
+
+export type PartId = "fuel" | "power" | "shield" | "antenna" | "science";
+export type Level = 0 | 1 | 2; // light, standard, heavy
+export type Loadout = Record<PartId, Level>;
+
+/** LVM3 can send roughly 4,000 kg toward the Moon (Chandrayaan-3 weighed ~3,900 kg). */
+export const MASS_BUDGET_KG = 4000;
+export const LEVEL_MASS_KG = [400, 800, 1200] as const;
+export const DEFAULT_LOADOUT: Loadout = { fuel: 1, power: 1, shield: 1, antenna: 1, science: 1 };
+
+export type Part = { id: PartId; name: string; why: string; levels: [string, string, string]; realNote: string };
+export const PARTS: Part[] = [
+  { id: "fuel", name: "Fuel tank", why: "Fuel for steering and, most of all, for landing.", levels: ["Small · 75%", "Standard · 90%", "Large · 100%"], realNote: "More than half of a Moon lander's mass is usually fuel." },
+  { id: "power", name: "Solar panels & batteries", why: "Bigger panels and batteries drain slower.", levels: ["Small", "Standard", "Large"], realNote: "Chandrayaan-3's Vikram lander made about 738 W from its solar panels." },
+  { id: "shield", name: "Radiation shielding", why: "Protects the hull and computers from solar flares.", levels: ["Thin · 1.5x damage", "Standard", "Thick · 0.6x damage"], realNote: "Shielding is heavy, so engineers only wrap the most sensitive parts." },
+  { id: "antenna", name: "Radio antenna", why: "A bigger dish keeps a stronger signal to Earth.", levels: ["Small dish", "Standard dish", "Big dish"], realNote: "NASA's Deep Space Network uses 34 m and 70 m dishes to talk to far spacecraft." },
+  { id: "science", name: "Science instruments", why: "More instruments, more discoveries at your site.", levels: ["Few · 0.5x science", "Standard", "Many · 1.5x science"], realNote: "Chandrayaan-1 carried NASA's M3 instrument, which helped find water on the Moon." },
+];
+
+export const loadoutMass = (l: Loadout) => (Object.values(l) as Level[]).reduce<number>((a, lv) => a + LEVEL_MASS_KG[lv], 0);
+export const canLaunch = (l: Loadout) => loadoutMass(l) <= MASS_BUDGET_KG;
+
+const FUEL_START = [75, 90, 100];
+const POWER_START = [75, 90, 100];
+const POWER_DRAIN = [-0.2, -0.15, -0.1];
+const SIGNAL_DRAIN = [-0.6, -0.4, -0.25];
+export const HULL_MULT = [1.5, 1, 0.6];
+export const SCIENCE_MULT = [0.5, 1, 1.5];
+
 export const LIMITS = {
   temp: { low: 0, high: 40, fail: 60 },
 };
@@ -113,12 +143,18 @@ export type CruiseState = {
   science: number;
   log: string[];
   failed: string | null;
+  loadout: Loadout;
+  hullMult: number;
+  scienceMult: number;
 };
 
-export function newCruise(): CruiseState {
+export function newCruise(loadout: Loadout = DEFAULT_LOADOUT): CruiseState {
   return {
-    t: { ...START },
-    drain: { ...BASE_DRAIN },
+    t: { ...START, fuel: FUEL_START[loadout.fuel]!, power: POWER_START[loadout.power]! },
+    drain: { ...BASE_DRAIN, power: POWER_DRAIN[loadout.power]!, signal: SIGNAL_DRAIN[loadout.antenna]! },
+    loadout: { ...loadout },
+    hullMult: HULL_MULT[loadout.shield]!,
+    scienceMult: SCIENCE_MULT[loadout.science]!,
     progress: 0,
     nextEvent: 0,
     active: null,
@@ -167,7 +203,10 @@ export function chooseOption(s: CruiseState, choiceIndex: number) {
   const ev = EVENTS[s.active]!;
   const c = ev.choices[choiceIndex];
   if (!c) return;
-  (Object.keys(c.effect) as StatKey[]).forEach((k) => (s.t[k] += c.effect[k] ?? 0));
+  (Object.keys(c.effect) as StatKey[]).forEach((k) => {
+    const v = c.effect[k] ?? 0;
+    s.t[k] += k === "hull" && v < 0 ? v * s.hullMult : v; // shielding scales damage
+  });
   if (c.drain) (Object.keys(c.drain) as StatKey[]).forEach((k) => (s.drain[k] += c.drain![k] ?? 0));
   if (c.science) s.science = clamp(s.science + c.science, 0, 100);
   if (c.good) s.goodChoices += 1;
@@ -314,8 +353,9 @@ export function computeResult(c: CruiseState, l: LandingState | null, site: Site
   const fuelPts = o === "crashed" ? 0 : Math.round(l.fuel * 2);
   const systemsPts = Math.round(((c.t.power + c.t.hull) / 2) * 1.5);
   const decisionPts = c.goodChoices * 40;
-  const sciencePts = o === "crashed" ? 0 : Math.round(site.scienceValue * (c.science / 100));
+  const sciencePts = o === "crashed" ? 0 : Math.round(site.scienceValue * (c.science / 100) * c.scienceMult);
   const survivalPts = o === "crashed" ? 0 : site.survival;
+  const dataPts = o === "crashed" ? 0 : Math.round(c.t.signal * (site.signal / 5));
   const breakdown = [
     { label: "Landing", pts: landingPts },
     { label: "Fuel left over", pts: fuelPts },
@@ -323,6 +363,7 @@ export function computeResult(c: CruiseState, l: LandingState | null, site: Site
     { label: "Good decisions", pts: decisionPts },
     { label: "Science at your site", pts: sciencePts },
     { label: "Power & signal on the surface", pts: survivalPts },
+    { label: "Data sent to Earth", pts: dataPts },
   ];
   const score = breakdown.reduce((a, b) => a + b.pts, 0);
   const rank = score >= 950 ? "Flight Director" : score >= 700 ? "Mission Engineer" : score >= 400 ? "Flight Controller" : "Trainee Controller";
