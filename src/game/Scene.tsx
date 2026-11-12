@@ -117,19 +117,15 @@ function CameraRig() {
     } else if (phase === "launch") {
       const r = rocketAt(t, new THREE.Vector3());
       const tt = t - LIFTOFF;
-      if (tt < 2.5) {
-        pos.set(16, 2.5, 20);
-        target.set(r.x, r.y + 5, 0);
-      } else {
-        pos.set(r.x + 12, r.y - 3, 20);
-        target.set(r.x, r.y + 5, 0);
-      }
+      const k = smooth(2, 4.5, tt);
+      pos.set(16, 2.5, 20).lerp(new THREE.Vector3(r.x + 12, r.y - 3, 22), k);
+      target.set(r.x, r.y + 5, 0);
     } else if (phase === "cruise") {
       const a = t * 0.05;
       pos.set(Math.sin(a) * 7.5, 1.6, Math.cos(a) * 7.5);
     } else if (phase === "site") {
-      pos.set(0, -6.5, 11);
-      target.set(0, -1.2, 0);
+      pos.set(0, -8.5, 10);
+      target.set(0, -5.5, 0);
     } else if (phase === "landing") {
       const alt = runtime.landing?.alt ?? 0;
       const y = 1.5 + alt * 0.05;
@@ -138,9 +134,7 @@ function CameraRig() {
     } else {
       pos.set(0, 2, 15);
     }
-    if (phase === "launch" && t - LIFTOFF >= 2.5) {
-      camera.position.lerp(pos, 0.12);
-    } else camera.position.copy(pos);
+    camera.position.copy(pos);
     look.current.copy(target);
     camera.lookAt(look.current);
   });

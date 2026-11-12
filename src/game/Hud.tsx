@@ -258,9 +258,9 @@ function SiteHud() {
   const t = runtime.cruise.t;
   return (
     <div className="flex flex-1 flex-col justify-end gap-3 px-4 pb-6 md:px-6">
-      <div className="text-center">
+      <div className={`${panel} mx-auto max-w-3xl px-6 py-4 text-center`}>
         <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">You're in Moon orbit · Fuel left {Math.round(t.fuel)}%</div>
-        <h2 className="mt-1 font-display text-3xl font-semibold text-foreground drop-shadow">Pick your landing site</h2>
+        <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">Pick your landing site</h2>
         <p className="mx-auto mt-1 max-w-2xl text-sm text-muted-foreground">Near the south pole, the Sun stays low on the horizon. Some spots get almost constant sunlight, others never see it. Choose between safety, power, signal and science.</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
