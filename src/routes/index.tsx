@@ -23,7 +23,7 @@ export const Route = createFileRoute("/")({
 
 function Game() {
   useEffect(() => {
-    // Deep link for demos/testing: /?phase=cruise | site | landing
+    // Deep link for demos/testing: /?phase=design | cruise | site | landing | result
     const p = new URLSearchParams(window.location.search).get("phase") as Phase | null;
     if (!p) return;
     const st = useGame.getState();

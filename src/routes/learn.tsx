@@ -18,7 +18,7 @@ export const Route = createFileRoute("/learn")({
 const TIMELINE = [
   { year: "1959", name: "Luna 2", who: "Soviet Union", text: "The first spacecraft to reach the Moon. It crashed into the surface on purpose." },
   { year: "1968", name: "Apollo 8", who: "NASA", text: "First people to fly around the Moon. Their big engine burn happened behind the Moon, with no radio contact." },
-  { year: "1969", name: "Apollo 11", who: "NASA", text: "First people to walk on the Moon, at the Sea of Tranquility. Neil Armstrong landed with only seconds of fuel to spare." },
+  { year: "1969", name: "Apollo 11", who: "NASA", text: "First people to walk on the Moon, at the Sea of Tranquility. Neil Armstrong landed with less than a minute of fuel left." },
   { year: "1970", name: "Apollo 13", who: "NASA", text: "An oxygen tank exploded on the way. The crew used the lander as a lifeboat and made it home safely." },
   { year: "2008", name: "Chandrayaan-1", who: "ISRO", text: "India's first Moon mission. NASA's M3 instrument on board helped show there is water on the Moon." },
   { year: "2019", name: "Chandrayaan-2", who: "ISRO", text: "The Vikram lander lost contact about 2 km above the surface and crashed. The orbiter still works today." },
