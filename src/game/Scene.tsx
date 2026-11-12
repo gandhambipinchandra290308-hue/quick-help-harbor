@@ -96,7 +96,10 @@ function CameraRig() {
     const t = runtime.phaseTime;
     const pos = tmpA;
     const target = tmpB.set(0, 0, 0);
-    if (phase === "solar") {
+    if (phase === "home") {
+      const a = 0.5 + t * 0.03;
+      pos.set(Math.cos(a) * 74, 30, Math.sin(a) * 74);
+    } else if (phase === "solar") {
       const a = 0.5 + t * 0.045;
       const r = THREE.MathUtils.lerp(78, 58, smooth(0, 18, t));
       pos.set(Math.cos(a) * r, THREE.MathUtils.lerp(34, 20, smooth(0, 18, t)), Math.sin(a) * r);
@@ -120,7 +123,7 @@ function CameraRig() {
       const k = smooth(2, 4.5, tt);
       pos.set(16, 2.5, 20).lerp(new THREE.Vector3(r.x + 12, r.y - 3, 22), k);
       target.set(r.x, r.y + 5, 0);
-    } else if (phase === "cruise") {
+    } else if (phase === "cruise" || phase === "design") {
       const a = t * 0.05;
       pos.set(Math.sin(a) * 7.5, 1.6, Math.cos(a) * 7.5);
     } else if (phase === "site") {
@@ -759,10 +762,10 @@ export function Scene() {
         <Lightformer intensity={1.2} position={[0, 5, 0]} scale={[10, 10, 1]} />
         <Lightformer intensity={0.6} color="#9bb3d6" position={[-5, 1, -1]} rotation-y={Math.PI / 2} scale={[20, 1, 1]} />
       </Environment>
-      {phase === "solar" && <SolarSystem />}
+      {(phase === "solar" || phase === "home") && <SolarSystem />}
       {phase === "earth" && <EarthCloseup />}
       {(phase === "pad" || phase === "launch") && <LaunchSite />}
-      {phase === "cruise" && <Cruise />}
+      {(phase === "cruise" || phase === "design") && <Cruise />}
       {(phase === "brief" || phase === "site" || phase === "result") && <MoonGlobe />}
       {phase === "landing" && <LandingScene />}
     </>
