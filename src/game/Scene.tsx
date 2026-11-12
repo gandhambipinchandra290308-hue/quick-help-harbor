@@ -202,11 +202,9 @@ function Planet({ i }: { i: number }) {
           <meshStandardMaterial color="#d9c49a" side={THREE.DoubleSide} transparent opacity={0.65} />
         </mesh>
       )}
-      {caption < 3 && (
-        <Html center position={[0, p.r + 1.1, 0]} zIndexRange={[10, 0]}>
-          <div className="pointer-events-none whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.2em] text-foreground/80">{p.name}</div>
-        </Html>
-      )}
+      <Html center position={[0, p.r + 1.1, 0]} zIndexRange={[10, 0]}>
+        <div className={`pointer-events-none whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.2em] text-foreground/80 transition-opacity duration-700 ${caption < 3 ? "opacity-100" : "opacity-0"}`}>{p.name}</div>
+      </Html>
     </group>
   );
 }
