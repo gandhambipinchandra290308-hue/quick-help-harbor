@@ -193,7 +193,7 @@ function EventCard() {
     );
   }
   if (c.active === null) return null;
-  const ev = EVENTS[c.active];
+  const ev = EVENTS[c.active]!;
   return (
     <div className={`${panel} pointer-events-auto w-full max-w-lg animate-in fade-in zoom-in-95 border-warning/60 p-6`}>
       <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.3em] text-warning">

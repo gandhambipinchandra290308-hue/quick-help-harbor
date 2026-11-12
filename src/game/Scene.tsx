@@ -19,7 +19,7 @@ const PLANETS: { name: string; kind: TexKind; r: number; d: number; speed: numbe
   { name: "Neptune", kind: "neptune", r: 1.35, d: 43, speed: 0.05, start: 2 },
 ];
 const planetPos = (i: number, t: number, out = new THREE.Vector3()) => {
-  const p = PLANETS[i];
+  const p = PLANETS[i]!;
   const a = p.start + t * p.speed;
   return out.set(Math.cos(a) * p.d, 0, -Math.sin(a) * p.d);
 };
@@ -180,7 +180,7 @@ function Atmosphere() {
 // ---------- solar system ----------
 
 function Planet({ i }: { i: number }) {
-  const p = PLANETS[i];
+  const p = PLANETS[i]!;
   const ref = useRef<THREE.Group>(null);
   const mesh = useRef<THREE.Mesh>(null);
   const tex = useMemo(() => planetTexture(p.kind, p.kind === "earth" ? 1024 : 512), [p.kind]);

@@ -164,8 +164,9 @@ export function stepCruise(s: CruiseState, dt: number) {
 
 export function chooseOption(s: CruiseState, choiceIndex: number) {
   if (s.active === null) return;
-  const ev = EVENTS[s.active];
+  const ev = EVENTS[s.active]!;
   const c = ev.choices[choiceIndex];
+  if (!c) return;
   (Object.keys(c.effect) as StatKey[]).forEach((k) => (s.t[k] += c.effect[k] ?? 0));
   if (c.drain) (Object.keys(c.drain) as StatKey[]).forEach((k) => (s.drain[k] += c.drain![k] ?? 0));
   if (c.science) s.science = clamp(s.science + c.science, 0, 100);
@@ -230,7 +231,7 @@ export const SITES: Site[] = [
   },
 ];
 
-export const getSite = (id: SiteId | null) => SITES.find((s) => s.id === id) ?? SITES[2];
+export const getSite = (id: SiteId | null) => SITES.find((s) => s.id === id) ?? SITES[2]!;
 
 // ---------------- Landing ----------------
 
