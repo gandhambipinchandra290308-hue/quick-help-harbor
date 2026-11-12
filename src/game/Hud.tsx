@@ -18,7 +18,7 @@ const CAPTIONS: Record<string, string[]> = {
 const panel = "rounded-md border border-border bg-card/85 backdrop-blur-md shadow-[var(--shadow-panel)]";
 
 function Shell({ children }: { children: ReactNode }) {
-  return <div className="pointer-events-none absolute inset-0 flex flex-col">{children}</div>;
+  return <div className="pointer-events-none absolute inset-0 z-30 flex flex-col">{children}</div>;
 }
 
 function TopBar() {
