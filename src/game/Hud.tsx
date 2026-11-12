@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { BatteryCharging, ChevronRight, FlaskConical, Fuel, Radio, RotateCcw, Satellite, Shield, SkipForward, Sun, Thermometer } from "lucide-react";
-import { INTRO_PHASES, runtime, useGame } from "./store";
-import { chooseOption, distanceKm, EVENTS, getSite, LIMITS, missionDay, SITES, TRIP_DAYS, type StatKey } from "./sim";
+import { Link } from "@tanstack/react-router";
+import { BatteryCharging, BookOpen, ChevronRight, FlaskConical, Fuel, House, Lock, Radio, Rocket, RotateCcw, Satellite, Shield, SkipForward, Sun, Thermometer, Trophy, Volume2, VolumeX, Wrench } from "lucide-react";
+import { INTRO_PHASES, readBest, runtime, useGame } from "./store";
+import { canLaunch, chooseOption, distanceKm, EVENTS, getSite, LEVEL_MASS_KG, LIMITS, loadoutMass, MASS_BUDGET_KG, missionDay, PARTS, SITES, TRIP_DAYS, type Level, type StatKey } from "./sim";
+import { isMuted, setMuted, sfx, unlock } from "./audio";
 
 const CAPTIONS: Record<string, string[]> = {
   solar: [
@@ -21,21 +23,121 @@ function Shell({ children }: { children: ReactNode }) {
   return <div className="pointer-events-none absolute inset-0 z-30 flex flex-col">{children}</div>;
 }
 
+const ghostBtn = "pointer-events-auto inline-flex items-center gap-2 rounded-md border border-border bg-card/70 px-3 py-2 font-mono text-xs uppercase tracking-widest text-foreground backdrop-blur hover:border-primary hover:text-primary";
+
 function TopBar() {
   const phase = useGame((s) => s.phase);
   const setPhase = useGame((s) => s.setPhase);
   const intro = INTRO_PHASES.includes(phase);
+  const [muted, setM] = useState(false);
+  useEffect(() => setM(isMuted()), []);
   return (
-    <div className="flex items-start justify-between p-4 md:p-6">
+    <div className="flex items-start justify-between gap-3 p-4 md:p-6">
       <div className="pointer-events-auto">
-        <div className="font-display text-lg font-semibold uppercase tracking-[0.25em] text-foreground">Mission Moon</div>
-        <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Space Mission Design Game · NASA Space Apps</div>
+        {phase !== "home" && (
+          <>
+            <div className="font-display text-lg font-semibold uppercase tracking-[0.25em] text-foreground">Mission Moon</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Space Mission Design Game · NASA Space Apps</div>
+          </>
+        )}
       </div>
-      {intro && (
-        <button onClick={() => setPhase("brief")} className="pointer-events-auto inline-flex items-center gap-2 rounded-md border border-border bg-card/70 px-4 py-2 font-mono text-xs uppercase tracking-widest text-foreground backdrop-blur hover:border-primary hover:text-primary">
-          Skip intro <SkipForward className="h-4 w-4" />
+      <div className="flex flex-wrap justify-end gap-2">
+        {intro && (
+          <button onClick={() => setPhase("cruise")} className={ghostBtn}>
+            Skip intro <SkipForward className="h-4 w-4" />
+          </button>
+        )}
+        {phase !== "home" && (
+          <button onClick={() => { sfx.engine(false); setPhase("home"); }} className={ghostBtn} aria-label="Home">
+            <House className="h-4 w-4" /><span className="hidden sm:inline">Home</span>
+          </button>
+        )}
+        <button onClick={() => { const m = !muted; setMuted(m); setM(m); if (!m) unlock(); }} className={ghostBtn} aria-label={muted ? "Turn sound on" : "Turn sound off"}>
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
         </button>
-      )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- home ----------
+
+const MISSIONS = [
+  { id: "moon", name: "The Moon", tag: "Playable", line: "4 days · 384,400 km · land near the south pole", facts: [] as string[] },
+  {
+    id: "mars", name: "Mars", tag: "Preview", line: "About 7 months · radio delay up to 22 minutes",
+    facts: [
+      "Radio takes 3 to 22 minutes each way, so you can't steer live. The spacecraft must think for itself.",
+      "Dust storms cover solar panels. NASA's Opportunity rover went silent after a giant storm in 2018.",
+      "Left behind: rovers Spirit and Opportunity, and the Ingenuity helicopter, which flew 72 times.",
+    ],
+  },
+  {
+    id: "asteroid", name: "Asteroid", tag: "Preview", line: "Almost no gravity · touch, grab, leave",
+    facts: [
+      "Gravity is so weak that pushing too hard sends you bouncing back into space.",
+      "NASA's OSIRIS-REx touched asteroid Bennu for seconds in 2020 and brought the sample home in 2023.",
+      "Japan's Hayabusa2 brought back pieces of asteroid Ryugu in 2020.",
+    ],
+  },
+];
+
+function Home() {
+  const setPhase = useGame((s) => s.setPhase);
+  const [best, setBest] = useState(0);
+  const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => setBest(readBest()), []);
+  const start = () => { unlock(); sfx.click(); setPhase("brief"); };
+  return (
+    <div className="flex flex-1 flex-col justify-between gap-6 overflow-y-auto px-4 pb-6 md:px-10">
+      <div className="pointer-events-auto max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-1000 md:pt-10">
+        <div className="font-mono text-[11px] uppercase tracking-[0.35em] text-primary">NASA Space Apps · Space Mission Design Game</div>
+        <h1 className="mt-2 font-display text-6xl font-bold uppercase leading-none tracking-wide text-foreground drop-shadow-lg md:text-8xl">Mission<br />Moon</h1>
+        <p className="mt-4 max-w-md text-lg text-foreground/90 drop-shadow">
+          Design a spacecraft, launch it, keep it alive through real space emergencies, and land near the Moon's south pole.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button onClick={start} className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 font-display text-lg font-semibold uppercase tracking-widest text-primary-foreground shadow-[var(--shadow-panel)] hover:bg-primary/90">
+            <Rocket className="h-5 w-5" /> Start mission
+          </button>
+          <Link to="/learn" className="inline-flex items-center gap-2 rounded-md border border-border bg-card/70 px-5 py-3 font-display font-semibold uppercase tracking-widest text-foreground backdrop-blur hover:border-primary hover:text-primary">
+            <BookOpen className="h-5 w-5" /> Real missions
+          </Link>
+        </div>
+        {best > 0 && (
+          <div className="mt-4 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            <Trophy className="h-4 w-4 text-primary" /> Your best score: <span className="text-foreground">{best}</span>
+          </div>
+        )}
+      </div>
+      <div className="pointer-events-auto grid gap-3 sm:grid-cols-3">
+        {MISSIONS.map((m) => {
+          const playable = m.tag === "Playable";
+          const isOpen = open === m.id;
+          return (
+            <button
+              key={m.id}
+              onClick={() => (playable ? start() : (sfx.click(), setOpen(isOpen ? null : m.id)))}
+              className={`${panel} flex flex-col p-4 text-left hover:border-primary ${playable ? "border-primary/60" : ""}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-display text-xl font-semibold text-foreground">{m.name}</span>
+                <span className={`inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest ${playable ? "text-success" : "text-muted-foreground"}`}>
+                  {!playable && <Lock className="h-3 w-3" />}{m.tag}
+                </span>
+              </div>
+              <span className="mt-1 text-xs text-muted-foreground">{m.line}</span>
+              {playable && <span className="mt-3 font-mono text-[11px] uppercase tracking-widest text-primary">Tap to fly →</span>}
+              {!playable && !isOpen && <span className="mt-3 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Tap to see what makes it hard</span>}
+              {isOpen && (
+                <ul className="mt-3 space-y-1.5 border-t border-border pt-3 text-xs text-foreground/85">
+                  {m.facts.map((f) => <li key={f}>• {f}</li>)}
+                </ul>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -83,7 +185,7 @@ const STATS: { key: StatKey; label: string; icon: typeof Fuel; why: string }[] =
 ];
 
 function Brief() {
-  const startMission = useGame((s) => s.startMission);
+  const setPhase = useGame((s) => s.setPhase);
   return (
     <div className="flex flex-1 items-center px-4 pb-6 md:px-10">
       <div className={`${panel} pointer-events-auto max-h-[78vh] w-full max-w-xl overflow-y-auto p-6 md:p-8`}>
@@ -104,9 +206,79 @@ function Brief() {
             </li>
           ))}
         </ul>
-        <button onClick={startMission} className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-display text-lg font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90">
-          Start the journey <ChevronRight className="h-5 w-5" />
+        <button onClick={() => { sfx.click(); setPhase("design"); }} className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-display text-lg font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90">
+          Design your spacecraft <Wrench className="h-5 w-5" />
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- design ----------
+
+function Design() {
+  const loadout = useGame((s) => s.loadout);
+  const setLoadout = useGame((s) => s.setLoadout);
+  const beginLaunch = useGame((s) => s.beginLaunch);
+  const startMission = useGame((s) => s.startMission);
+  const mass = loadoutMass(loadout);
+  const ok = canLaunch(loadout);
+  const pct = Math.min(100, (mass / MASS_BUDGET_KG) * 100);
+  return (
+    <div className="flex flex-1 items-center px-4 pb-6 md:px-10">
+      <div className={`${panel} pointer-events-auto max-h-[80vh] w-full max-w-xl overflow-y-auto p-6`}>
+        <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Design your spacecraft</div>
+        <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">Make it fit on the rocket</h2>
+        <p className="mt-2 text-sm text-foreground/90">
+          India's LVM3 rocket can send about <span className="font-semibold">4,000 kg</span> toward the Moon. Every part has weight. Make one thing bigger and something else must get smaller. Your choices change what happens on the trip.
+        </p>
+        <div className="mt-4">
+          <div className="flex justify-between font-mono text-xs uppercase tracking-widest">
+            <span className="text-muted-foreground">Launch mass</span>
+            <span className={ok ? "text-success" : "text-destructive"}>{mass.toLocaleString("en-US")} / {MASS_BUDGET_KG.toLocaleString("en-US")} kg</span>
+          </div>
+          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+            <div className={`h-full rounded-full transition-all ${ok ? "bg-success" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        <div className="mt-5 space-y-4">
+          {PARTS.map((p) => (
+            <div key={p.id}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold text-foreground">{p.name}</span>
+                <span className="text-xs text-muted-foreground">{p.why}</span>
+              </div>
+              <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                {p.levels.map((label, i) => {
+                  const on = loadout[p.id] === i;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => { sfx.click(); setLoadout({ ...loadout, [p.id]: i as Level }); }}
+                      className={`rounded-md border px-2 py-2 text-left text-xs transition-colors ${on ? "border-primary bg-primary/15 text-foreground" : "border-border bg-background/50 text-muted-foreground hover:border-primary/60"}`}
+                    >
+                      <span className="block font-medium">{label}</span>
+                      <span className="block font-mono text-[10px]">{LEVEL_MASS_KG[i]} kg</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-[11px] italic text-muted-foreground">{p.realNote}</p>
+            </div>
+          ))}
+        </div>
+        <button
+          disabled={!ok}
+          onClick={() => { sfx.go(); beginLaunch(); }}
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-display text-lg font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+        >
+          {ok ? <>Launch the mission <Rocket className="h-5 w-5" /></> : `Too heavy: remove ${(mass - MASS_BUDGET_KG).toLocaleString("en-US")} kg`}
+        </button>
+        {ok && (
+          <button onClick={() => { sfx.click(); startMission(); }} className="mt-2 w-full text-center font-mono text-[11px] uppercase tracking-widest text-muted-foreground hover:text-primary">
+            Skip the launch movie
+          </button>
+        )}
       </div>
     </div>
   );
@@ -179,6 +351,7 @@ function EventCard() {
   useGame((s) => s.tick);
   const bump = useGame((s) => s.bump);
   const c = runtime.cruise;
+  useEffect(() => { if (c.active !== null) sfx.alarm(); }, [c.active]);
   if (c.lastOutcome) {
     return (
       <div className={`${panel} pointer-events-auto w-full max-w-lg p-6`}>
@@ -203,7 +376,7 @@ function EventCard() {
       <p className="mt-2 text-sm text-foreground/90">{ev.story}</p>
       <div className="mt-4 space-y-2">
         {ev.choices.map((ch, i) => (
-          <button key={i} onClick={() => { chooseOption(c, i); bump(); }} className="group flex w-full items-center justify-between gap-3 rounded-md border border-border bg-background/60 px-4 py-3 text-left hover:border-primary">
+          <button key={i} onClick={() => { chooseOption(c, i); (ch.good ? sfx.good : sfx.bad)(); bump(); }} className="group flex w-full items-center justify-between gap-3 rounded-md border border-border bg-background/60 px-4 py-3 text-left hover:border-primary">
             <span>
               <span className="block font-medium text-foreground group-hover:text-primary">{ch.label}</span>
               <span className="block text-xs text-muted-foreground">{ch.detail}</span>
@@ -293,9 +466,19 @@ function LandingHud() {
   const bump = useGame((s) => s.bump);
   const site = getSite(siteId);
   const l = runtime.landing;
+  const done = l?.done ?? false;
+  const empty = (l?.fuel ?? 1) <= 0;
   useEffect(() => {
-    const down = (e: KeyboardEvent) => { if (e.code === "Space" && runtime.landing) { e.preventDefault(); runtime.landing.burning = true; } };
-    const up = (e: KeyboardEvent) => { if (e.code === "Space" && runtime.landing) runtime.landing.burning = false; };
+    if (!done && !empty) return;
+    sfx.engine(false);
+    if (done) (runtime.landing?.outcome === "crashed" ? sfx.crash : sfx.touchdown)();
+  }, [done, empty]);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      const L = runtime.landing;
+      if (e.code === "Space" && L) { e.preventDefault(); if (!L.burning && L.running && !L.done && L.fuel > 0) sfx.engine(true); L.burning = true; }
+    };
+    const up = (e: KeyboardEvent) => { if (e.code === "Space" && runtime.landing) { runtime.landing.burning = false; sfx.engine(false); } };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
@@ -304,7 +487,11 @@ function LandingHud() {
   const speed = Math.abs(l.v);
   const falling = l.v < 0;
   const speedLvl = !falling || speed <= l.safeSpeed ? "ok" : speed <= l.safeSpeed * 2.2 ? "warn" : "bad";
-  const fire = (on: boolean) => { if (runtime.landing) runtime.landing.burning = on; };
+  const fire = (on: boolean) => {
+    if (!runtime.landing) return;
+    runtime.landing.burning = on;
+    sfx.engine(on && runtime.landing.fuel > 0 && !runtime.landing.done);
+  };
   return (
     <div className="flex flex-1 items-end justify-between gap-4 px-4 pb-6 md:px-6">
       <div className={`${panel} pointer-events-auto w-64 p-4`}>
@@ -371,6 +558,7 @@ function ResultHud() {
             <p className="mt-2 text-foreground/90">{r.reason}</p>
           </div>
           <div className="text-left md:text-right">
+            {runtime.newBest && <div className="font-mono text-[11px] uppercase tracking-widest text-success">New best score!</div>}
             <div className="font-display text-5xl font-bold tabular-nums text-primary">{r.score}</div>
             <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{r.rank}</div>
           </div>
@@ -406,18 +594,41 @@ function ResultHud() {
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
           <button onClick={startMission} className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-display font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90"><RotateCcw className="h-4 w-4" /> Fly again</button>
-          <button onClick={() => setPhase("solar")} className="rounded-md border border-border px-5 py-2.5 font-display font-semibold uppercase tracking-widest text-foreground hover:border-primary hover:text-primary">Watch intro</button>
+          <button onClick={() => setPhase("design")} className="inline-flex items-center gap-2 rounded-md border border-border px-5 py-2.5 font-display font-semibold uppercase tracking-widest text-foreground hover:border-primary hover:text-primary"><Wrench className="h-4 w-4" /> Change design</button>
+          <Link to="/learn" className="inline-flex items-center gap-2 rounded-md border border-border px-5 py-2.5 font-display font-semibold uppercase tracking-widest text-foreground hover:border-primary hover:text-primary"><BookOpen className="h-4 w-4" /> Real missions</Link>
         </div>
       </div>
     </div>
   );
 }
 
+function useSoundCues() {
+  const phase = useGame((s) => s.phase);
+  useEffect(() => {
+    const on = () => unlock();
+    window.addEventListener("pointerdown", on);
+    window.addEventListener("keydown", on);
+    return () => { window.removeEventListener("pointerdown", on); window.removeEventListener("keydown", on); };
+  }, []);
+  useEffect(() => {
+    if (phase !== "landing") sfx.engine(false);
+    if (phase === "result" && runtime.result?.outcome === "lost") sfx.bad();
+    if (phase !== "launch") return;
+    const ids = [0, 1, 2, 3, 4].map((i) => setTimeout(sfx.tick, i * 1000));
+    ids.push(setTimeout(() => { sfx.go(); sfx.liftoff(); }, 5000));
+    ids.push(setTimeout(sfx.separation, 13000));
+    return () => ids.forEach(clearTimeout);
+  }, [phase]);
+}
+
 export function Hud() {
   const phase = useGame((s) => s.phase);
+  useSoundCues();
   return (
     <Shell>
       <TopBar />
+      {phase === "home" && <Home />}
+      {phase === "design" && <Design />}
       {INTRO_PHASES.includes(phase) && <Captions />}
       {phase === "brief" && <Brief />}
       {phase === "cruise" && <CruiseHud />}
