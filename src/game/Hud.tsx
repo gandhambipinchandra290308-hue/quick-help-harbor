@@ -89,7 +89,8 @@ function Home() {
   useEffect(() => setBest(readBest()), []);
   const start = () => { unlock(); sfx.click(); setPhase("brief"); };
   return (
-    <div className="flex flex-1 flex-col justify-between gap-6 overflow-y-auto px-4 pb-6 md:px-10">
+    <div className="relative flex flex-1 flex-col justify-between gap-6 overflow-y-auto px-4 pb-6 md:px-10">
+      <div className="pointer-events-none fixed inset-y-0 left-0 -z-10 w-full bg-gradient-to-r from-background/90 via-background/50 to-transparent md:w-2/3" />
       <div className="pointer-events-auto max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-1000 md:pt-10">
         <div className="font-mono text-[11px] uppercase tracking-[0.35em] text-primary">NASA Space Apps · Space Mission Design Game</div>
         <h1 className="mt-2 font-display text-6xl font-bold uppercase leading-none tracking-wide text-foreground drop-shadow-lg md:text-8xl">Mission<br />Moon</h1>
@@ -267,10 +268,11 @@ function Design() {
             </div>
           ))}
         </div>
+        <div className="sticky -bottom-6 -mx-6 -mb-6 mt-6 border-t border-border bg-card px-6 pb-6 pt-4">
         <button
           disabled={!ok}
           onClick={() => { sfx.go(); beginLaunch(); }}
-          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-display text-lg font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-display text-lg font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
         >
           {ok ? <>Launch the mission <Rocket className="h-5 w-5" /></> : `Too heavy: remove ${(mass - MASS_BUDGET_KG).toLocaleString("en-US")} kg`}
         </button>
@@ -279,6 +281,7 @@ function Design() {
             Skip the launch movie
           </button>
         )}
+        </div>
       </div>
     </div>
   );
