@@ -10,7 +10,7 @@ describe("landing rules", () => {
     expect(landingOutcome(6, 2.5)).toBe("crashed");
   });
   it("falling with the engine off crashes", () => {
-    const l = newLanding(80, 100, SITES[3]);
+    const l = newLanding(80, 100, SITES[3]!);
     l.running = true;
     for (let i = 0; i < 2000 && !l.done; i++) stepLanding(l, 0.05);
     expect(l.outcome).toBe("crashed");

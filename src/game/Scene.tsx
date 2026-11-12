@@ -445,7 +445,7 @@ function Smoke() {
     if (emitting) {
       const r = rocketAt(t, new THREE.Vector3());
       for (let k = 0; k < 3; k++) {
-        const pp = parts[next.current++ % COUNT];
+        const pp = parts[next.current++ % COUNT]!;
         pp.age = 0;
         pp.p.set(r.x + (Math.random() - 0.5), Math.max(0.6, r.y - 0.5), (Math.random() - 0.5));
         const a = Math.random() * Math.PI * 2;
