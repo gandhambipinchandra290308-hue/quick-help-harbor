@@ -65,18 +65,17 @@ function Stepper() {
     if (phase === "cruise") {
       const c = runtime.cruise;
       const wasActive = c.active;
-      stepCruise(c, dt);
+      if (!c.lastOutcome) stepCruise(c, dt); // pause while the player reads the result of a choice
       if (c.failed) return st.finish();
-      if (c.progress >= 1 && c.active === null && t > 0.5 && !c.lastOutcome) st.setPhase("site");
+      if (c.progress >= 1 && c.active === null && !c.lastOutcome) return st.setPhase("site");
       if (wasActive !== c.active || frames.current % 8 === 0) st.bump();
     }
     if (phase === "landing" && runtime.landing) {
       stepLanding(runtime.landing, dt);
       if (frames.current % 4 === 0) st.bump();
-      if (runtime.landing.done && t > 0 && !runtime.result) {
-        runtime.result = null;
-        setTimeout(() => useGame.getState().phase === "landing" && useGame.getState().finish(), 2200);
-        runtime.result = { outcome: "lost", title: "", reason: "", score: 0, rank: "", breakdown: [] }; // placeholder: blocks re-trigger
+      if (runtime.landing.done) {
+        if (runtime.finishAt === null) runtime.finishAt = t + 2.2;
+        else if (t >= runtime.finishAt) return st.finish();
       }
     }
     frames.current++;

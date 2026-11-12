@@ -13,6 +13,7 @@ export const runtime = {
   cruise: newCruise() as CruiseState,
   landing: null as LandingState | null,
   result: null as Result | null,
+  finishAt: null as number | null,
 };
 
 type GameStore = {
@@ -35,6 +36,7 @@ export const useGame = create<GameStore>((set, get) => ({
   siteId: null,
   setPhase: (phase) => {
     runtime.phaseTime = 0;
+    runtime.finishAt = null;
     set({ phase, caption: 0 });
   },
   setCaption: (caption) => set({ caption }),
