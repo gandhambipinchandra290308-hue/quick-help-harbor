@@ -24,6 +24,7 @@ export const Route = createFileRoute("/")({
 function Game() {
   useEffect(() => {
     // Deep link for demos/testing: /?phase=design | cruise | site | landing | result
+    if (import.meta.env.DEV) Object.assign(window, { __game: { useGame, runtime } });
     const p = new URLSearchParams(window.location.search).get("phase") as Phase | null;
     if (!p) return;
     const st = useGame.getState();
@@ -31,7 +32,6 @@ function Game() {
     else if (p === "site") { st.startMission(); runtime.cruise.progress = 1; runtime.cruise.nextEvent = 99; st.setPhase("site"); }
     else if (p === "landing") { st.startMission(); st.pickSite("shivshakti"); }
     else st.setPhase(p);
-    if (import.meta.env.DEV) Object.assign(window, { __game: { useGame, runtime } });
   }, []);
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-background">

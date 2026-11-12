@@ -50,7 +50,7 @@ export const PARTS: Part[] = [
   { id: "science", name: "Science instruments", why: "More instruments, more discoveries at your site.", levels: ["Few · 0.5x science", "Standard", "Many · 1.5x science"], realNote: "Chandrayaan-1 carried NASA's M3 instrument, which helped find water on the Moon." },
 ];
 
-export const loadoutMass = (l: Loadout) => (Object.values(l) as Level[]).reduce((a, lv) => a + LEVEL_MASS_KG[lv], 0);
+export const loadoutMass = (l: Loadout) => (Object.values(l) as Level[]).reduce<number>((a, lv) => a + LEVEL_MASS_KG[lv], 0);
 export const canLaunch = (l: Loadout) => loadoutMass(l) <= MASS_BUDGET_KG;
 
 const FUEL_START = [75, 90, 100];
