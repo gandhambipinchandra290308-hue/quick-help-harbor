@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { BatteryCharging, BookOpen, ChevronRight, FlaskConical, Fuel, House, Lock, Radio, Rocket, RotateCcw, Satellite, Shield, SkipForward, Sun, Thermometer, Trophy, Volume2, VolumeX, Wrench } from "lucide-react";
 import { INTRO_PHASES, readBest, runtime, useGame } from "./store";
-import { BUDGET_CR, canLaunch, chooseOption, distanceKm, EVENTS, getRocket, getSite, LEVEL_COST_CR, LEVEL_MASS_KG, missionCost, ROCKETS, LIMITS, loadoutMass, MASS_BUDGET_KG, missionDay, PARTS, SITES, TRIP_DAYS, type Level, type StatKey } from "./sim";
+import { BUDGET_CR, canLaunch, chooseOption, distanceKm, EVENTS, getRocket, getSite, LEVEL_COST_CR, LEVEL_MASS_KG, missionCost, ROCKETS, LIMITS, loadoutMass, missionDay, PARTS, SITES, TRIP_DAYS, type Level, type StatKey } from "./sim";
 import { isMuted, setMuted, sfx, unlock } from "./audio";
 
 const CAPTIONS: Record<string, string[]> = {
