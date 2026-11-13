@@ -20,6 +20,8 @@ export type MissionEvent = {
   title: string;
   story: string;
   realNote: string;
+  /** Counts toward "orbital accuracy" in the score when handled well. */
+  orbit?: boolean;
   choices: Choice[];
 };
 
@@ -39,6 +41,18 @@ export type Loadout = Record<PartId, Level>;
 /** LVM3 can send roughly 4,000 kg toward the Moon (Chandrayaan-3 weighed ~3,900 kg). */
 export const MASS_BUDGET_KG = 4000;
 export const LEVEL_MASS_KG = [400, 800, 1200] as const;
+/** Rough game prices in crore rupees. Chandrayaan-3 cost about ₹615 crore in total. */
+export const BUDGET_CR = 1000;
+export const LEVEL_COST_CR = [30, 60, 100] as const;
+
+export type RocketId = "gslv" | "lvm3" | "falcon9";
+export type Rocket = { id: RocketId; name: string; country: string; capacityKg: number; costCr: number; note: string };
+export const ROCKETS: Rocket[] = [
+  { id: "gslv", name: "GSLV Mk II", country: "India", capacityKg: 2250, costCr: 250, note: "Cheaper, but carries less. India's medium rocket with a home-made cryogenic engine." },
+  { id: "lvm3", name: "LVM3", country: "India", capacityKg: 4000, costCr: 400, note: "Launched Chandrayaan-2 (2019) and Chandrayaan-3 (2023)." },
+  { id: "falcon9", name: "Falcon 9", country: "USA", capacityKg: 5500, costCr: 550, note: "Carries the most, costs the most. Launched the Odysseus Moon lander in 2024." },
+];
+export const getRocket = (id: RocketId) => ROCKETS.find((r) => r.id === id) ?? ROCKETS[1]!;
 export const DEFAULT_LOADOUT: Loadout = { fuel: 1, power: 1, shield: 1, antenna: 1, science: 1 };
 
 export type Part = { id: PartId; name: string; why: string; levels: [string, string, string]; realNote: string };
@@ -51,7 +65,10 @@ export const PARTS: Part[] = [
 ];
 
 export const loadoutMass = (l: Loadout) => (Object.values(l) as Level[]).reduce<number>((a, lv) => a + LEVEL_MASS_KG[lv], 0);
-export const canLaunch = (l: Loadout) => loadoutMass(l) <= MASS_BUDGET_KG;
+export const missionCost = (l: Loadout, rocket: RocketId = "lvm3") =>
+  (Object.values(l) as Level[]).reduce<number>((a, lv) => a + LEVEL_COST_CR[lv], 0) + getRocket(rocket).costCr;
+export const canLaunch = (l: Loadout, rocket: RocketId = "lvm3") =>
+  loadoutMass(l) <= getRocket(rocket).capacityKg && missionCost(l, rocket) <= BUDGET_CR;
 
 const FUEL_START = [75, 90, 100];
 const POWER_START = [75, 90, 100];
@@ -105,6 +122,20 @@ export const EVENTS: MissionEvent[] = [
     ],
   },
   {
+    id: "nav",
+    at: 0.53,
+    system: "NAVIGATION",
+    title: "You're drifting off course",
+    story: "Tracking stations on Earth measured your path. You're slightly off the line to the Moon. A tiny error now grows into thousands of kilometres by the time you arrive.",
+    realNote: "Real story: Moon missions plan small \"mid-course correction\" burns. Apollo crews fired the engine a few seconds at a time to stay on the right path.",
+    orbit: true,
+    choices: [
+      { label: "Small correction burn now", detail: "Fixing it early is cheap", effect: { fuel: -3 }, outcome: "Back on the line to the Moon. The burn took only a few seconds.", good: true },
+      { label: "Fix it later, near the Moon", detail: "A bigger error costs more fuel", effect: { fuel: -9 }, outcome: "Fixed, but the error had grown and the burn was much longer.", good: false },
+      { label: "Ignore the drift", detail: "Many small fixes later", effect: {}, drain: { fuel: -0.15 }, outcome: "You keep making small fixes that slowly eat fuel.", good: false },
+    ],
+  },
+  {
     id: "flare",
     at: 0.62,
     system: "HULL / ELECTRONICS",
@@ -124,10 +155,24 @@ export const EVENTS: MissionEvent[] = [
     title: "The big burn happens behind the Moon",
     story: "To enter Moon orbit you must fire the engine while behind the Moon, where Earth can't hear you. No radio contact at all.",
     realNote: "Real story: in 1968, Apollo 8 made this burn behind the Moon. Mission Control waited in silence until the crew came back around.",
+    orbit: true,
     choices: [
       { label: "Upload the burn plan before losing signal", detail: "Planned ahead, normal fuel use", effect: { fuel: -12, signal: 5 }, outcome: "Perfect burn on time. You're in Moon orbit.", good: true },
       { label: "Let the onboard computer figure it out", detail: "Less precise", effect: { fuel: -16, hull: -5 }, outcome: "You're in orbit, but the burn was rough and used extra fuel.", good: false },
       { label: "Wait for contact, then burn late", detail: "A late burn costs much more fuel", effect: { fuel: -22 }, outcome: "Orbit reached, but the late burn was expensive.", good: false },
+    ],
+  },
+  {
+    id: "photos",
+    at: 0.9,
+    system: "SCIENCE",
+    title: "First close-up pictures of the Moon",
+    story: "From Moon orbit your camera can photograph the surface. But sending big pictures to Earth uses power and radio time you also need for landing.",
+    realNote: "Real story: before landing, Chandrayaan-3's lander cameras sent back pictures of the Moon's far side. NASA's LRO orbiter has even photographed the Apollo landing sites.",
+    choices: [
+      { label: "Take pictures, send the best few", detail: "Some science, small cost", effect: { power: -6, signal: -3 }, science: 10, outcome: "Scientists on Earth got sharp pictures of your landing area.", good: true },
+      { label: "Send every picture now", detail: "Most science, drains power and radio", effect: { power: -18, signal: -10 }, science: 15, outcome: "Great pictures, but your batteries and radio took a big hit.", good: false },
+      { label: "Skip pictures, save power", detail: "Safe, but nothing learned", effect: {}, science: -10, outcome: "Power saved, but scientists got nothing new.", good: false },
     ],
   },
 ];
@@ -148,14 +193,20 @@ export type CruiseState = {
   scienceMult: number;
   /** Guided mode: systems are kept just above failure, so the mission always reaches the Moon. */
   guided: boolean;
+  rocket: RocketId;
+  budgetLeft: number; // crore rupees not spent on the design
+  orbitGood: number; // well-handled navigation / orbit burns
 };
 
 /** In guided mode no number is allowed past these, so nothing can fail. */
 export const GUIDED_FLOOR = { power: 8, hull: 10, tempMax: 52 };
 
-export function newCruise(loadout: Loadout = DEFAULT_LOADOUT, guided = false): CruiseState {
+export function newCruise(loadout: Loadout = DEFAULT_LOADOUT, guided = false, rocket: RocketId = "lvm3"): CruiseState {
   return {
     guided,
+    rocket,
+    budgetLeft: Math.max(0, BUDGET_CR - missionCost(loadout, rocket)),
+    orbitGood: 0,
     t: { ...START, fuel: FUEL_START[loadout.fuel]!, power: POWER_START[loadout.power]! },
     drain: { ...BASE_DRAIN, power: POWER_DRAIN[loadout.power]!, signal: SIGNAL_DRAIN[loadout.antenna]! },
     loadout: { ...loadout },
@@ -214,8 +265,9 @@ export function chooseOption(s: CruiseState, choiceIndex: number) {
     s.t[k] += k === "hull" && v < 0 ? v * s.hullMult : v; // shielding scales damage
   });
   if (c.drain) (Object.keys(c.drain) as StatKey[]).forEach((k) => (s.drain[k] += c.drain![k] ?? 0));
-  if (c.science) s.science = clamp(s.science + c.science, 0, 100);
+  if (c.science) s.science = clamp(s.science + c.science, 0, 120);
   if (c.good) s.goodChoices += 1;
+  if (c.good && ev.orbit) s.orbitGood += 1;
   clampTelemetry(s.t, s.guided);
   s.lastOutcome = { text: c.outcome, good: c.good };
   s.log = [`${ev.system}: ${c.outcome}`, ...s.log].slice(0, 4);
@@ -349,50 +401,52 @@ export function stepLanding(s: LandingState, dt: number) {
   }
 }
 
-// ---------------- Score ----------------
+// ---------------- Score (out of 100, the team plan's six categories) ----------------
 
 export type Result = {
   outcome: LandingOutcome | "lost";
   title: string;
   reason: string;
-  score: number;
+  score: number; // 0..100
   rank: string;
-  breakdown: { label: string; pts: number }[];
+  breakdown: { label: string; pts: number; max: number }[];
 };
 
+export const rankFor = (score: number) =>
+  score >= 85 ? "Chief Mission Architect" : score >= 65 ? "Mission Commander" : score >= 40 ? "Mission Planner" : "Junior Mission Engineer";
+
 export function computeResult(c: CruiseState, l: LandingState | null, site: Site | null): Result {
+  const r = Math.round;
   if (c.failed || !l || !site) {
-    const pts = c.goodChoices * 40;
-    return {
-      outcome: "lost", title: "Mission lost in space", reason: c.failed ?? "The spacecraft never reached the Moon.",
-      score: pts, rank: "Trainee Controller", breakdown: [{ label: "Good decisions", pts }],
-    };
+    const breakdown = [
+      { label: "Mission objectives", pts: 0, max: 30 },
+      { label: "Resource efficiency", pts: 0, max: 20 },
+      { label: "Spacecraft design", pts: r(c.t.hull * 0.05), max: 15 },
+      { label: "Orbital accuracy", pts: c.orbitGood * 5, max: 15 },
+      { label: "Communication", pts: 0, max: 10 },
+      { label: "Scientific discoveries", pts: 0, max: 10 },
+    ];
+    const score = breakdown.reduce((a, b) => a + b.pts, 0);
+    return { outcome: "lost", title: "Mission lost in space", reason: c.failed ?? "The spacecraft never reached the Moon.", score, rank: rankFor(score), breakdown };
   }
   const o = l.outcome ?? "crashed";
-  const landingPts = o === "landed" ? 400 : o === "hard" ? 150 : 0;
-  const fuelPts = o === "crashed" ? 0 : Math.round(l.fuel * 2);
-  const systemsPts = Math.round(((c.t.power + c.t.hull) / 2) * 1.5);
-  const decisionPts = c.goodChoices * 40;
-  const sciencePts = o === "crashed" ? 0 : Math.round(site.scienceValue * (c.science / 100) * c.scienceMult);
-  const survivalPts = o === "crashed" ? 0 : site.survival;
-  const dataPts = o === "crashed" ? 0 : Math.round(c.t.signal * (site.signal / 5));
+  const down = o !== "crashed";
+  const soft = o === "landed" && l.touchdownSpeed <= l.safeSpeed * 0.7 ? 5 : o === "landed" ? 3 : 0;
   const breakdown = [
-    { label: "Landing", pts: landingPts },
-    { label: "Fuel left over", pts: fuelPts },
-    { label: "Spacecraft health", pts: systemsPts },
-    { label: "Good decisions", pts: decisionPts },
-    { label: "Science at your site", pts: sciencePts },
-    { label: "Power & signal on the surface", pts: survivalPts },
-    { label: "Data sent to Earth", pts: dataPts },
+    { label: "Mission objectives", pts: o === "landed" ? 30 : o === "hard" ? 18 : 0, max: 30 },
+    { label: "Resource efficiency", pts: r(l.fuel * 0.1 + c.t.power * 0.05 + Math.min(1, c.budgetLeft / 300) * 5), max: 20 },
+    { label: "Spacecraft design", pts: r(c.t.hull * 0.1 + (c.t.temp < LIMITS.temp.high ? 5 : 0)), max: 15 },
+    { label: "Orbital accuracy", pts: c.orbitGood * 5 + soft, max: 15 },
+    { label: "Communication", pts: down ? r((c.t.signal / 10) * (site.signal / 5)) : 0, max: 10 },
+    { label: "Scientific discoveries", pts: down ? Math.min(10, r((site.science / 5) * 10 * (c.science / 100) * c.scienceMult)) : 0, max: 10 },
   ];
-  const score = breakdown.reduce((a, b) => a + b.pts, 0);
-  const rank = score >= 950 ? "Flight Director" : score >= 700 ? "Mission Engineer" : score >= 400 ? "Flight Controller" : "Trainee Controller";
+  const score = Math.min(100, breakdown.reduce((a, b) => a + b.pts, 0));
   const speed = l.touchdownSpeed.toFixed(1);
   const title = o === "landed" ? "Safe landing!" : o === "hard" ? "Hard landing, but you're down" : "The lander crashed";
   let reason =
     o === "landed" ? `Touched down at ${speed} m/s at ${site.name}.`
     : o === "hard" ? `Touched down at ${speed} m/s, faster than the safe ${site.safeSpeed} m/s. Legs are bent but the lander survived.`
     : `Hit the surface at ${speed} m/s. Like Chandrayaan-2 in 2019, it came down too fast.`;
-  if (o !== "crashed" && site.survival === 0) reason += " But with no sunlight and no signal, the batteries died within hours.";
-  return { outcome: o, title, reason, score, rank, breakdown };
+  if (down && site.survival === 0) reason += " But with no sunlight and no signal, the batteries died within hours.";
+  return { outcome: o, title, reason, score, rank: rankFor(score), breakdown };
 }
