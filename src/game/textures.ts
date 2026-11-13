@@ -197,3 +197,66 @@ export function faceAngle(lat: number, lon: number) {
   const [x, , z] = latLonToVec3(lat, lon, 1);
   return -Math.atan2(x, z);
 }
+
+function canvasTex(key: string, w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) {
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  draw(canvas.getContext("2d")!);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  cache.set(key, tex);
+  return tex;
+}
+
+/** Crinkled gold insulation foil (MLI) that wraps real spacecraft bodies. */
+export function foilTexture() {
+  return canvasTex("foil", 256, 256, (ctx) => {
+    ctx.fillStyle = "#b8862e";
+    ctx.fillRect(0, 0, 256, 256);
+    let s = 11;
+    const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    for (let k = 0; k < 420; k++) {
+      const x = r() * 256, y = r() * 256, sz = 6 + r() * 26;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let q = 0; q < 4; q++) ctx.lineTo(x + (r() - 0.5) * sz, y + (r() - 0.5) * sz);
+      ctx.closePath();
+      const l = r();
+      ctx.fillStyle = l > 0.5 ? `rgba(255,226,140,${0.15 + l * 0.25})` : `rgba(90,55,10,${0.15 + l * 0.3})`;
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(70,45,10,0.5)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, 254, 254);
+  });
+}
+
+/** Solar panel: dark blue cells with silver grid lines. */
+export function solarCellTexture() {
+  return canvasTex("cells", 512, 256, (ctx) => {
+    ctx.fillStyle = "#c9ccd2";
+    ctx.fillRect(0, 0, 512, 256);
+    const cols = 12, rows = 6, gap = 3;
+    const cw = 512 / cols, ch = 256 / rows;
+    for (let i = 0; i < cols; i++)
+      for (let j = 0; j < rows; j++) {
+        const g = ctx.createLinearGradient(i * cw, j * ch, (i + 1) * cw, (j + 1) * ch);
+        g.addColorStop(0, "#1b2f66");
+        g.addColorStop(1, "#0b1636");
+        ctx.fillStyle = g;
+        ctx.fillRect(i * cw + gap, j * ch + gap, cw - gap * 2, ch - gap * 2);
+        ctx.strokeStyle = "rgba(160,180,220,0.25)";
+        ctx.lineWidth = 1;
+        for (let k = 1; k < 4; k++) {
+          ctx.beginPath();
+          ctx.moveTo(i * cw + gap, j * ch + (ch * k) / 4);
+          ctx.lineTo((i + 1) * cw - gap, j * ch + (ch * k) / 4);
+          ctx.stroke();
+        }
+      }
+  });
+}
