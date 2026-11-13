@@ -851,7 +851,7 @@ function LandingScene() {
   useFrame(() => {
     const l = runtime.landing;
     if (!lander.current || !l) return;
-    lander.current.position.y = 1.25 + l.alt * 0.05;
+    lander.current.position.y = 1.3 + l.alt * 0.05;
     if (l.done && l.outcome === "crashed") lander.current.rotation.z = THREE.MathUtils.lerp(lander.current.rotation.z, 1.2, 0.08);
     else if (l.done && l.outcome === "hard") lander.current.rotation.z = 0.15;
   });
