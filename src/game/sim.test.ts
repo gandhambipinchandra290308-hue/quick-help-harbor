@@ -65,3 +65,23 @@ describe("spacecraft design", () => {
     expect(c.t.hull).toBeCloseTo(100 - 28 * 0.6);
   });
 });
+
+describe("guided mode (can't fail)", () => {
+  it("picking the worst answer every time still reaches the Moon", () => {
+    const c = newCruise({ ...DEFAULT_LOADOUT, shield: 0, power: 0 }, true);
+    for (let i = 0; i < CRUISE_SECONDS * 40 && c.progress < 1; i++) {
+      stepCruise(c, 0.05);
+      if (c.active !== null) chooseOption(c, 2);
+    }
+    expect(c.progress).toBe(1);
+    expect(c.failed).toBeNull();
+  });
+  it("never touching the engine still lands safely, even with no fuel", () => {
+    for (const site of SITES) {
+      const l = newLanding(0, 20, site, true);
+      l.running = true;
+      for (let i = 0; i < 4000 && !l.done; i++) stepLanding(l, 0.05);
+      expect(l.outcome).toBe("landed");
+    }
+  });
+});

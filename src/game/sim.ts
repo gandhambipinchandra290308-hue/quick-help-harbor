@@ -146,10 +146,16 @@ export type CruiseState = {
   loadout: Loadout;
   hullMult: number;
   scienceMult: number;
+  /** Guided mode: systems are kept just above failure, so the mission always reaches the Moon. */
+  guided: boolean;
 };
 
-export function newCruise(loadout: Loadout = DEFAULT_LOADOUT): CruiseState {
+/** In guided mode no number is allowed past these, so nothing can fail. */
+export const GUIDED_FLOOR = { power: 8, hull: 10, tempMax: 52 };
+
+export function newCruise(loadout: Loadout = DEFAULT_LOADOUT, guided = false): CruiseState {
   return {
+    guided,
     t: { ...START, fuel: FUEL_START[loadout.fuel]!, power: POWER_START[loadout.power]! },
     drain: { ...BASE_DRAIN, power: POWER_DRAIN[loadout.power]!, signal: SIGNAL_DRAIN[loadout.antenna]! },
     loadout: { ...loadout },
@@ -168,12 +174,12 @@ export function newCruise(loadout: Loadout = DEFAULT_LOADOUT): CruiseState {
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-function clampTelemetry(t: Telemetry) {
+function clampTelemetry(t: Telemetry, guided = false) {
   t.fuel = clamp(t.fuel, 0, 100);
-  t.power = clamp(t.power, 0, 100);
+  t.power = clamp(t.power, guided ? GUIDED_FLOOR.power : 0, 100);
   t.signal = clamp(t.signal, 0, 100);
-  t.hull = clamp(t.hull, 0, 100);
-  t.temp = clamp(t.temp, -60, 90);
+  t.hull = clamp(t.hull, guided ? GUIDED_FLOOR.hull : 0, 100);
+  t.temp = clamp(t.temp, -60, guided ? GUIDED_FLOOR.tempMax : 90);
 }
 
 export function checkFailure(t: Telemetry): string | null {
@@ -188,7 +194,7 @@ export function stepCruise(s: CruiseState, dt: number) {
   if (s.failed || s.active !== null || s.progress >= 1) return;
   s.progress = Math.min(1, s.progress + dt / CRUISE_SECONDS);
   (Object.keys(s.drain) as StatKey[]).forEach((k) => (s.t[k] += s.drain[k] * dt));
-  clampTelemetry(s.t);
+  clampTelemetry(s.t, s.guided);
   s.failed = checkFailure(s.t);
   if (s.failed) return;
   const ev = EVENTS[s.nextEvent];
@@ -210,7 +216,7 @@ export function chooseOption(s: CruiseState, choiceIndex: number) {
   if (c.drain) (Object.keys(c.drain) as StatKey[]).forEach((k) => (s.drain[k] += c.drain![k] ?? 0));
   if (c.science) s.science = clamp(s.science + c.science, 0, 100);
   if (c.good) s.goodChoices += 1;
-  clampTelemetry(s.t);
+  clampTelemetry(s.t, s.guided);
   s.lastOutcome = { text: c.outcome, good: c.good };
   s.log = [`${ev.system}: ${c.outcome}`, ...s.log].slice(0, 4);
   s.failed = checkFailure(s.t);
@@ -292,10 +298,15 @@ export type LandingState = {
   done: boolean;
   outcome: LandingOutcome | null;
   touchdownSpeed: number;
+  /** Guided mode: autopilot fires the engine (from a reserve tank if needed) when you fall too fast. */
+  assist: boolean;
+  autopilot: boolean; // true on frames where the autopilot is firing
 };
 
-export function newLanding(fuel: number, hull: number, site: Site): LandingState {
+export function newLanding(fuel: number, hull: number, site: Site, assist = false): LandingState {
   return {
+    assist,
+    autopilot: false,
     alt: site.startAlt,
     v: -40,
     fuel,
@@ -315,9 +326,17 @@ export function landingOutcome(speed: number, safeSpeed: number): LandingOutcome
   return "crashed";
 }
 
+/** Fastest safe falling speed at this height, if the engine can still brake in time. */
+export function safeProfileSpeed(alt: number, thrust: number, safeSpeed: number) {
+  const brake = (thrust - MOON_G) * 0.75;
+  return Math.sqrt((safeSpeed * 0.6) ** 2 + 2 * brake * Math.max(0, alt));
+}
+
 export function stepLanding(s: LandingState, dt: number) {
   if (!s.running || s.done) return;
-  const firing = s.burning && s.fuel > 0;
+  const tooFast = s.v < 0 && -s.v > safeProfileSpeed(s.alt, s.thrust, s.safeSpeed);
+  s.autopilot = s.assist && !s.burning && tooFast;
+  const firing = (s.burning && s.fuel > 0) || s.autopilot || (s.assist && s.burning && tooFast);
   s.v += (-MOON_G + (firing ? s.thrust : 0)) * dt;
   s.alt += s.v * dt;
   if (firing) s.fuel = Math.max(0, s.fuel - FUEL_BURN * dt);
@@ -325,6 +344,7 @@ export function stepLanding(s: LandingState, dt: number) {
     s.alt = 0;
     s.done = true;
     s.touchdownSpeed = Math.abs(Math.min(0, s.v));
+    if (s.assist) s.touchdownSpeed = Math.min(s.touchdownSpeed, s.safeSpeed * 0.9);
     s.outcome = landingOutcome(s.touchdownSpeed, s.safeSpeed);
   }
 }
