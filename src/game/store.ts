@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { computeResult, DEFAULT_LOADOUT, getSite, newCruise, newLanding, type CruiseState, type LandingState, type Loadout, type Result, type SiteId } from "./sim";
+import { computeResult, DEFAULT_LOADOUT, getSite, newCruise, newLanding, type CruiseState, type LandingState, type Loadout, type Result, type RocketId, type SiteId } from "./sim";
 
 export type Phase = "home" | "brief" | "design" | "solar" | "earth" | "pad" | "launch" | "cruise" | "site" | "landing" | "result";
 
@@ -8,7 +8,7 @@ export const INTRO_PHASES: Phase[] = ["solar", "earth", "pad", "launch"];
 export const DURATIONS: Partial<Record<Phase, number>> = { solar: 24, earth: 9, pad: 8, launch: 19 };
 export const NEXT: Partial<Record<Phase, Phase>> = { solar: "earth", earth: "pad", pad: "launch", launch: "cruise" };
 
-const BEST_KEY = "mission-moon-best";
+const BEST_KEY = "mission-moon-best-100"; // score is out of 100
 export function readBest(): number {
   try { return Number(localStorage.getItem(BEST_KEY) ?? 0) || 0; } catch { return 0; }
 }
@@ -31,6 +31,8 @@ type GameStore = {
   loadout: Loadout;
   /** Guided = can't fail (autopilot + safety limits). Real = you can lose. */
   guided: boolean;
+  rocket: RocketId;
+  setRocket: (r: RocketId) => void;
   setGuided: (g: boolean) => void;
   setPhase: (p: Phase) => void;
   setCaption: (n: number) => void;
@@ -51,6 +53,8 @@ export const useGame = create<GameStore>((set, get) => ({
   siteId: null,
   loadout: { ...DEFAULT_LOADOUT },
   guided: true,
+  rocket: "lvm3",
+  setRocket: (rocket) => set({ rocket }),
   setGuided: (guided) => set({ guided }),
   setPhase: (phase) => {
     runtime.phaseTime = 0;
@@ -67,14 +71,14 @@ export const useGame = create<GameStore>((set, get) => ({
     get().setPhase("landing");
   },
   beginLaunch: () => {
-    runtime.cruise = newCruise(get().loadout, get().guided);
+    runtime.cruise = newCruise(get().loadout, get().guided, get().rocket);
     runtime.landing = null;
     runtime.result = null;
     set({ siteId: null });
     get().setPhase("solar");
   },
   startMission: () => {
-    runtime.cruise = newCruise(get().loadout, get().guided);
+    runtime.cruise = newCruise(get().loadout, get().guided, get().rocket);
     runtime.landing = null;
     runtime.result = null;
     set({ siteId: null });

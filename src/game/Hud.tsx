@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { BatteryCharging, BookOpen, ChevronRight, FlaskConical, Fuel, House, Lock, Radio, Rocket, RotateCcw, Satellite, Shield, SkipForward, Sun, Thermometer, Trophy, Volume2, VolumeX, Wrench } from "lucide-react";
 import { INTRO_PHASES, readBest, runtime, useGame } from "./store";
-import { canLaunch, chooseOption, distanceKm, EVENTS, getSite, LEVEL_MASS_KG, LIMITS, loadoutMass, MASS_BUDGET_KG, missionDay, PARTS, SITES, TRIP_DAYS, type Level, type StatKey } from "./sim";
+import { BUDGET_CR, canLaunch, chooseOption, distanceKm, EVENTS, getRocket, getSite, LEVEL_COST_CR, LEVEL_MASS_KG, missionCost, ROCKETS, LIMITS, loadoutMass, MASS_BUDGET_KG, missionDay, PARTS, SITES, TRIP_DAYS, type Level, type StatKey } from "./sim";
 import { isMuted, setMuted, sfx, unlock } from "./audio";
 
 const CAPTIONS: Record<string, string[]> = {
@@ -115,7 +115,7 @@ function Home() {
           <div className={`${panel} border-success/50 p-4`}>
             <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-success">Our solution</div>
             <p className="mt-1.5 text-sm text-foreground">
-              A game where <span className="font-semibold">you</span> design the spacecraft, launch it, fix 5 real emergencies (from NASA and ISRO missions), pick a landing site and land it yourself.
+              A game where <span className="font-semibold">you</span> design the spacecraft, pick a rocket within budget, handle 7 real events in space (from NASA and ISRO missions), pick a landing site and land it yourself.
             </p>
           </div>
         </div>
@@ -238,17 +238,39 @@ function Design() {
   const startMission = useGame((s) => s.startMission);
   const guided = useGame((s) => s.guided);
   const setGuided = useGame((s) => s.setGuided);
+  const rocketId = useGame((s) => s.rocket);
+  const setRocket = useGame((s) => s.setRocket);
+  const rocket = getRocket(rocketId);
   const mass = loadoutMass(loadout);
-  const ok = canLaunch(loadout);
-  const pct = Math.min(100, (mass / MASS_BUDGET_KG) * 100);
+  const cost = missionCost(loadout, rocketId);
+  const massOk = mass <= rocket.capacityKg;
+  const costOk = cost <= BUDGET_CR;
+  const ok = canLaunch(loadout, rocketId);
+  const pct = Math.min(100, (mass / rocket.capacityKg) * 100);
+  const costPct = Math.min(100, (cost / BUDGET_CR) * 100);
   return (
     <div className="flex flex-1 items-center px-4 pb-6 md:px-10">
       <div className={`${panel} pointer-events-auto max-h-[80vh] w-full max-w-xl overflow-y-auto p-6`}>
         <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Design your spacecraft</div>
         <h2 className="mt-1 font-display text-3xl font-semibold text-foreground">Make it fit on the rocket</h2>
         <p className="mt-2 text-sm text-foreground/90">
-          India's LVM3 rocket can send about <span className="font-semibold">4,000 kg</span> toward the Moon. Every part has weight. Make one thing bigger and something else must get smaller. Your choices change what happens on the trip.
+          Pick a rocket, then fit your parts inside its <span className="font-semibold">weight limit</span> and your <span className="font-semibold">₹{BUDGET_CR.toLocaleString("en-IN")} crore budget</span>. A bigger rocket carries more but costs more. Your choices change what happens on the trip.
         </p>
+        <div className="mt-4 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Launch vehicle</div>
+        <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+          {ROCKETS.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => { sfx.click(); setRocket(r.id); }}
+              className={`rounded-md border p-2 text-left transition-colors ${rocketId === r.id ? "border-primary bg-primary/15" : "border-border bg-background/50 hover:border-primary/60"}`}
+            >
+              <span className="block text-sm font-semibold text-foreground">{r.name}</span>
+              <span className="block font-mono text-[10px] text-muted-foreground">{r.country} · {r.capacityKg.toLocaleString("en-US")} kg</span>
+              <span className="block font-mono text-[10px] text-muted-foreground">₹{r.costCr} cr</span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] italic text-muted-foreground">{rocket.note} Prices are rough game numbers.</p>
         <div className="mt-4 grid grid-cols-2 gap-1.5">
           {([
             [true, "Guided mission", "Autopilot backs you up. You can't lose. Best for a demo."],
@@ -267,10 +289,17 @@ function Design() {
         <div className="mt-4">
           <div className="flex justify-between font-mono text-xs uppercase tracking-widest">
             <span className="text-muted-foreground">Launch mass</span>
-            <span className={ok ? "text-success" : "text-destructive"}>{mass.toLocaleString("en-US")} / {MASS_BUDGET_KG.toLocaleString("en-US")} kg</span>
+            <span className={massOk ? "text-success" : "text-destructive"}>{mass.toLocaleString("en-US")} / {rocket.capacityKg.toLocaleString("en-US")} kg</span>
           </div>
           <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-            <div className={`h-full rounded-full transition-all ${ok ? "bg-success" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
+            <div className={`h-full rounded-full transition-all ${massOk ? "bg-success" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
+          </div>
+          <div className="mt-3 flex justify-between font-mono text-xs uppercase tracking-widest">
+            <span className="text-muted-foreground">Budget</span>
+            <span className={costOk ? "text-success" : "text-destructive"}>₹{cost} / {BUDGET_CR} crore</span>
+          </div>
+          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+            <div className={`h-full rounded-full transition-all ${costOk ? "bg-success" : "bg-destructive"}`} style={{ width: `${costPct}%` }} />
           </div>
         </div>
         <div className="mt-5 space-y-4">
@@ -290,7 +319,7 @@ function Design() {
                       className={`rounded-md border px-2 py-2 text-left text-xs transition-colors ${on ? "border-primary bg-primary/15 text-foreground" : "border-border bg-background/50 text-muted-foreground hover:border-primary/60"}`}
                     >
                       <span className="block font-medium">{label}</span>
-                      <span className="block font-mono text-[10px]">{LEVEL_MASS_KG[i]} kg</span>
+                      <span className="block font-mono text-[10px]">{LEVEL_MASS_KG[i]} kg · ₹{LEVEL_COST_CR[i]} cr</span>
                     </button>
                   );
                 })}
@@ -305,7 +334,7 @@ function Design() {
           onClick={() => { sfx.go(); beginLaunch(); }}
           className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-display text-lg font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
         >
-          {ok ? <>Launch the mission <Rocket className="h-5 w-5" /></> : `Too heavy: remove ${(mass - MASS_BUDGET_KG).toLocaleString("en-US")} kg`}
+          {ok ? <>Launch on {rocket.name} <Rocket className="h-5 w-5" /></> : !massOk ? `Too heavy: remove ${(mass - rocket.capacityKg).toLocaleString("en-US")} kg` : `Over budget by ₹${cost - BUDGET_CR} crore`}
         </button>
         {ok && (
           <button onClick={() => { sfx.click(); startMission(); }} className="mt-2 w-full text-center font-mono text-[11px] uppercase tracking-widest text-muted-foreground hover:text-primary">
@@ -424,6 +453,34 @@ function EventCard() {
   );
 }
 
+const ORBIT_PATH = "M 63 82 A 18 18 0 1 1 62.9 81 C 64 100 92 108 120 86 C 150 62 168 40 192 40 A 13 13 0 1 1 193 53 A 13 13 0 1 1 192 40.2";
+
+function OrbitMap() {
+  useGame((s) => s.tick);
+  const ref = useRef<SVGPathElement>(null);
+  const [len, setLen] = useState(0);
+  useEffect(() => { if (ref.current) setLen(ref.current.getTotalLength()); }, []);
+  const p = runtime.cruise.progress;
+  const pt = ref.current && len ? ref.current.getPointAtLength(len * p) : { x: 63, y: 82 };
+  const stage = p < 0.2 ? "Earth orbit · raising the orbit" : p < 0.8 ? "Moon transfer · coasting" : "Moon orbit · getting ready to land";
+  return (
+    <div className={`${panel} pointer-events-auto hidden w-72 p-4 lg:block`}>
+      <div className="mb-1 flex justify-between font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground"><span>Orbit plan</span></div>
+      <svg viewBox="0 0 240 125" className="w-full">
+        <circle cx="45" cy="82" r="9" className="fill-primary/80" />
+        <text x="45" y="112" textAnchor="middle" className="fill-muted-foreground" fontSize="8">Earth</text>
+        <circle cx="200" cy="48" r="6" className="fill-muted-foreground" />
+        <text x="200" y="74" textAnchor="middle" className="fill-muted-foreground" fontSize="8">Moon</text>
+        <path ref={ref} d={ORBIT_PATH} fill="none" className="stroke-muted-foreground/50" strokeWidth="1" strokeDasharray="3 3" />
+        {len > 0 && <path d={ORBIT_PATH} fill="none" className="stroke-primary" strokeWidth="1.6" strokeDasharray={`${len * p} ${len}`} />}
+        <circle cx={pt.x} cy={pt.y} r="3.2" className="fill-foreground" />
+      </svg>
+      <div className="font-mono text-[10px] uppercase tracking-widest text-primary">{stage}</div>
+      <p className="mt-1 text-[11px] text-muted-foreground">Like Chandrayaan-3: circle Earth, raise the orbit, coast to the Moon, then brake into Moon orbit.</p>
+    </div>
+  );
+}
+
 function MissionLog() {
   useGame((s) => s.tick);
   return (
@@ -443,7 +500,10 @@ function CruiseHud() {
       <div className="flex flex-1 flex-col items-center justify-between gap-4 md:flex-row md:items-start">
         <Telemetry />
         <EventCard />
-        <MissionLog />
+        <div className="flex flex-col gap-4">
+          <OrbitMap />
+          <MissionLog />
+        </div>
       </div>
       <div className="text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Drag to turn the spacecraft</div>
     </div>
@@ -596,7 +656,7 @@ function ResultHud() {
           </div>
           <div className="text-left md:text-right">
             {runtime.newBest && <div className="font-mono text-[11px] uppercase tracking-widest text-success">New best score!</div>}
-            <div className="font-display text-5xl font-bold tabular-nums text-primary">{r.score}</div>
+            <div className="font-display text-5xl font-bold tabular-nums text-primary">{r.score}<span className="text-2xl text-muted-foreground">/100</span></div>
             <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{r.rank}</div>
           </div>
         </div>
@@ -604,7 +664,7 @@ function ResultHud() {
           {r.breakdown.map((b) => (
             <div key={b.label} className="flex justify-between border-b border-border py-1 text-sm">
               <span className="text-muted-foreground">{b.label}</span>
-              <span className="font-mono tabular-nums text-foreground">+{b.pts}</span>
+              <span className="font-mono tabular-nums text-foreground">{b.pts}<span className="text-muted-foreground">/{b.max}</span></span>
             </div>
           ))}
         </div>
