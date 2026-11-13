@@ -1,26 +1,30 @@
-# Quick Help Harbor
+# Mission Moon
 
-see i need your help right now
+**Created and maintained by Aswin.**
 
-This project was built with [Lovable](https://lovable.dev).
+Mission Moon is an independent space-mission game project. The product concept, direction, and ongoing development are owned by its creator. Lovable was used as a development tool; it is not the author or owner of the project.
 
-**Live app**: https://quick-help-harbor.lovable.app
+**Live app:** https://quick-help-harbor.lovable.app
 
-## Build with Lovable
+## Run locally
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/991acad9-63fb-41d2-b8d0-987add3f9ba3).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Requirements: Node.js and npm.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+git clone https://github.com/gandhambipinchandra290308-hue/quick-help-harbor.git
+cd quick-help-harbor
+npm install
 npm run dev
 ```
+
+## Checks
+
+```sh
+npm test
+npm run build
+npm run lint
+```
+
+## Project ownership
+
+The source code is maintained in this repository by Aswin. Third-party libraries and tools remain subject to their respective licenses and terms.
