@@ -29,6 +29,9 @@ type GameStore = {
   tick: number;
   siteId: SiteId | null;
   loadout: Loadout;
+  /** Guided = can't fail (autopilot + safety limits). Real = you can lose. */
+  guided: boolean;
+  setGuided: (g: boolean) => void;
   setPhase: (p: Phase) => void;
   setCaption: (n: number) => void;
   bump: () => void;
@@ -47,6 +50,8 @@ export const useGame = create<GameStore>((set, get) => ({
   tick: 0,
   siteId: null,
   loadout: { ...DEFAULT_LOADOUT },
+  guided: true,
+  setGuided: (guided) => set({ guided }),
   setPhase: (phase) => {
     runtime.phaseTime = 0;
     runtime.finishAt = null;
@@ -57,19 +62,19 @@ export const useGame = create<GameStore>((set, get) => ({
   setLoadout: (loadout) => set({ loadout }),
   pickSite: (id) => {
     const site = getSite(id);
-    runtime.landing = newLanding(runtime.cruise.t.fuel, runtime.cruise.t.hull, site);
+    runtime.landing = newLanding(runtime.cruise.t.fuel, runtime.cruise.t.hull, site, runtime.cruise.guided);
     set({ siteId: id });
     get().setPhase("landing");
   },
   beginLaunch: () => {
-    runtime.cruise = newCruise(get().loadout);
+    runtime.cruise = newCruise(get().loadout, get().guided);
     runtime.landing = null;
     runtime.result = null;
     set({ siteId: null });
     get().setPhase("solar");
   },
   startMission: () => {
-    runtime.cruise = newCruise(get().loadout);
+    runtime.cruise = newCruise(get().loadout, get().guided);
     runtime.landing = null;
     runtime.result = null;
     set({ siteId: null });

@@ -93,7 +93,7 @@ function Home() {
       <div className="pointer-events-none fixed inset-y-0 left-0 -z-10 w-full bg-gradient-to-r from-background/90 via-background/50 to-transparent md:w-2/3" />
       <div className="pointer-events-auto max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-1000 md:pt-10">
         <div className="font-mono text-[11px] uppercase tracking-[0.35em] text-primary">NASA Space Apps · Space Mission Design Game</div>
-        <h1 className="mt-2 font-display text-6xl font-bold uppercase leading-none tracking-wide text-foreground drop-shadow-lg md:text-8xl">Mission<br />Moon</h1>
+        <h1 className="mt-2 font-display text-6xl font-bold uppercase leading-none tracking-wide text-foreground drop-shadow-lg md:text-7xl">Mission<br />Moon</h1>
         <p className="mt-4 max-w-md text-lg text-foreground/90 drop-shadow">
           Design a spacecraft, launch it, keep it alive through real space emergencies, and land near the Moon's south pole.
         </p>
@@ -104,6 +104,20 @@ function Home() {
           <Link to="/learn" className="inline-flex items-center gap-2 rounded-md border border-border bg-card/70 px-5 py-3 font-display font-semibold uppercase tracking-widest text-foreground backdrop-blur hover:border-primary hover:text-primary">
             <BookOpen className="h-5 w-5" /> Real missions
           </Link>
+        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className={`${panel} border-destructive/50 p-4`}>
+            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-destructive">The problem</div>
+            <p className="mt-1.5 text-sm text-foreground">
+              NASA's <span className="font-semibold">Space Mission Design Game</span> challenge: students hear about rockets, but not about the hard part. Keeping a spacecraft alive for days, with limited fuel, power and weight, while things break.
+            </p>
+          </div>
+          <div className={`${panel} border-success/50 p-4`}>
+            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-success">Our solution</div>
+            <p className="mt-1.5 text-sm text-foreground">
+              A game where <span className="font-semibold">you</span> design the spacecraft, launch it, fix 5 real emergencies (from NASA and ISRO missions), pick a landing site and land it yourself.
+            </p>
+          </div>
         </div>
         {best > 0 && (
           <div className="mt-4 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted-foreground">
@@ -222,6 +236,8 @@ function Design() {
   const setLoadout = useGame((s) => s.setLoadout);
   const beginLaunch = useGame((s) => s.beginLaunch);
   const startMission = useGame((s) => s.startMission);
+  const guided = useGame((s) => s.guided);
+  const setGuided = useGame((s) => s.setGuided);
   const mass = loadoutMass(loadout);
   const ok = canLaunch(loadout);
   const pct = Math.min(100, (mass / MASS_BUDGET_KG) * 100);
@@ -233,6 +249,21 @@ function Design() {
         <p className="mt-2 text-sm text-foreground/90">
           India's LVM3 rocket can send about <span className="font-semibold">4,000 kg</span> toward the Moon. Every part has weight. Make one thing bigger and something else must get smaller. Your choices change what happens on the trip.
         </p>
+        <div className="mt-4 grid grid-cols-2 gap-1.5">
+          {([
+            [true, "Guided mission", "Autopilot backs you up. You can't lose. Best for a demo."],
+            [false, "Real mission", "No safety net. Bad choices can lose the spacecraft."],
+          ] as const).map(([g, name, desc]) => (
+            <button
+              key={name}
+              onClick={() => { sfx.click(); setGuided(g); }}
+              className={`rounded-md border p-2.5 text-left transition-colors ${guided === g ? "border-primary bg-primary/15" : "border-border bg-background/50 hover:border-primary/60"}`}
+            >
+              <span className="block text-sm font-semibold text-foreground">{name}</span>
+              <span className="block text-[11px] text-muted-foreground">{desc}</span>
+            </button>
+          ))}
+        </div>
         <div className="mt-4">
           <div className="flex justify-between font-mono text-xs uppercase tracking-widest">
             <span className="text-muted-foreground">Launch mass</span>
@@ -414,6 +445,7 @@ function CruiseHud() {
         <EventCard />
         <MissionLog />
       </div>
+      <div className="text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Drag to turn the spacecraft</div>
     </div>
   );
 }
@@ -517,6 +549,7 @@ function LandingHud() {
         {!l.running ? (
           <div className={`${panel} pointer-events-auto max-w-sm p-5 text-center`}>
             <p className="text-sm text-foreground">You're {site.startAlt.toLocaleString("en-US")} m up and falling at 40 m/s. Hold the button (or the Space bar) to fire the engine and slow down. Don't waste fuel.</p>
+            {l.assist && <p className="mt-2 text-xs text-success">Guided mission: if you fall too fast, the autopilot will brake for you.</p>}
             <p className="mt-2 text-xs italic text-muted-foreground">In 2019, Chandrayaan-2's lander lost contact about 2 km above the surface and crashed. Don't repeat it.</p>
             <button onClick={() => { l.running = true; bump(); }} className="mt-4 rounded-md bg-primary px-6 py-3 font-display font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90">Begin descent</button>
           </div>
@@ -531,6 +564,7 @@ function LandingHud() {
           <div className={`${panel} p-4 font-display text-2xl text-foreground`}>{l.outcome === "landed" ? "Touchdown!" : l.outcome === "hard" ? "Hard landing…" : "Contact lost…"}</div>
         )}
         {l.running && !l.done && <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Hold · or press Space</span>}
+        {l.running && !l.done && l.autopilot && <span className={`${panel} animate-pulse px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-warning`}>Too fast! Autopilot is braking</span>}
       </div>
       <div className="hidden w-64 md:block" />
     </div>

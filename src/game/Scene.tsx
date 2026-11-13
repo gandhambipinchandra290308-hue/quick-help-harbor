@@ -3,7 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Environment, Html, Lightformer, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import { DURATIONS, NEXT, runtime, useGame, type Phase } from "./store";
-import { faceAngle, groundTexture, latLonToVec3, planetTexture, type TexKind } from "./textures";
+import { faceAngle, foilTexture, groundTexture, latLonToVec3, planetTexture, solarCellTexture, type TexKind } from "./textures";
 import { getSite, SITES, stepCruise, stepLanding } from "./sim";
 
 // ---------- shared data ----------
@@ -549,57 +549,159 @@ function LaunchSite() {
 
 // ---------- spacecraft / lander ----------
 
-function Spacecraft({ legs = true, flame }: { legs?: boolean; flame?: () => boolean }) {
+function NavLight({ position, color, phase = 0 }: { position: [number, number, number]; color: string; phase?: number }) {
+  const mat = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    if (mat.current) mat.current.emissiveIntensity = Math.sin(clock.elapsedTime * 3 + phase) > 0.6 ? 4 : 0.2;
+  });
   return (
-    <group>
-      <mesh>
-        <boxGeometry args={[1.1, 0.9, 1.1]} />
-        <meshStandardMaterial color="#c9a24a" metalness={0.85} roughness={0.32} />
+    <mesh position={position}>
+      <sphereGeometry args={[0.045, 10, 8]} />
+      <meshStandardMaterial ref={mat} color={color} emissive={color} emissiveIntensity={1} toneMapped={false} />
+    </mesh>
+  );
+}
+
+function SolarWing({ side }: { side: 1 | -1 }) {
+  const cells = useMemo(() => solarCellTexture(), []);
+  return (
+    <group position={[side * 0.62, 0.15, 0]}>
+      {/* boom + yoke */}
+      <mesh position={[side * 0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.035, 0.035, 0.7, 8]} />
+        <meshStandardMaterial color="#b9bcc2" metalness={0.8} roughness={0.3} />
       </mesh>
-      <mesh position={[0, 0.65, 0]}>
-        <cylinderGeometry args={[0.35, 0.45, 0.4, 20]} />
-        <meshStandardMaterial color="#d8d6d0" metalness={0.3} roughness={0.5} />
+      <mesh position={[side * 0.68, 0, 0]}>
+        <boxGeometry args={[0.06, 0.08, 0.9]} />
+        <meshStandardMaterial color="#8d9096" metalness={0.8} roughness={0.35} />
       </mesh>
-      {/* dish */}
-      <mesh position={[0, 1.15, 0]} rotation={[0.4, 0, 0]}>
-        <sphereGeometry args={[0.45, 20, 8, 0, Math.PI * 2, 0, Math.PI / 3.2]} />
-        <meshStandardMaterial color="#f0eee8" side={THREE.DoubleSide} />
-      </mesh>
-      {/* solar panels */}
-      {[-1, 1].map((s) => (
-        <group key={s} position={[s * 1.75, 0.1, 0]}>
+      {[0, 1, 2].map((k) => (
+        <group key={k} position={[side * (1.12 + k * 0.82), 0, 0]}>
           <mesh>
-            <boxGeometry args={[2.2, 0.04, 0.85]} />
-            <meshStandardMaterial color="#1c2c52" metalness={0.6} roughness={0.25} />
+            <boxGeometry args={[0.78, 0.03, 0.95]} />
+            <meshStandardMaterial color="#9ea2a8" metalness={0.7} roughness={0.35} />
           </mesh>
-          <mesh position={[-s * 1.25, 0, 0]}>
-            <boxGeometry args={[0.35, 0.05, 0.08]} />
-            <meshStandardMaterial color="#9a9890" />
+          <mesh position={[0, 0.017, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.74, 0.91]} />
+            <meshStandardMaterial map={cells} metalness={0.15} roughness={0.35} emissive="#1a2c66" emissiveIntensity={0.35} />
           </mesh>
         </group>
       ))}
+    </group>
+  );
+}
+
+function Thrusters({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0.15, z]}>
+      <mesh>
+        <boxGeometry args={[0.12, 0.12, 0.12]} />
+        <meshStandardMaterial color="#7d8086" metalness={0.8} roughness={0.4} />
+      </mesh>
+      {([[0, 0.1, 0, 0], [0, -0.1, 0, Math.PI]] as const).map(([px, py, pz, rz], i) => (
+        <mesh key={i} position={[px, py, pz]} rotation={[0, 0, rz]}>
+          <coneGeometry args={[0.035, 0.08, 8, 1, true]} />
+          <meshStandardMaterial color="#4a4c50" metalness={0.9} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Spacecraft({ legs = true, flame }: { legs?: boolean; flame?: () => boolean }) {
+  const foil = useMemo(() => foilTexture(), []);
+  return (
+    <group>
+      {/* main body: 8-sided, wrapped in gold insulation foil */}
+      <mesh rotation={[0, Math.PI / 8, 0]}>
+        <cylinderGeometry args={[0.66, 0.66, 1, 8]} />
+        <meshStandardMaterial map={foil} color="#ffffff" metalness={0.9} roughness={0.38} envMapIntensity={1.2} />
+      </mesh>
+      {/* top + bottom decks */}
+      {[0.52, -0.52].map((y) => (
+        <mesh key={y} position={[0, y, 0]} rotation={[0, Math.PI / 8, 0]}>
+          <cylinderGeometry args={[0.7, 0.7, 0.05, 8]} />
+          <meshStandardMaterial color="#e9e7e1" metalness={0.2} roughness={0.55} />
+        </mesh>
+      ))}
+      {/* fuel tank dome */}
+      <mesh position={[0, 0.55, 0]}>
+        <sphereGeometry args={[0.32, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#d7d9dd" metalness={0.85} roughness={0.25} />
+      </mesh>
+      {/* high-gain dish on a boom */}
+      <mesh position={[0.25, 0.9, -0.15]} rotation={[0.3, 0, -0.25]}>
+        <cylinderGeometry args={[0.025, 0.025, 0.7, 8]} />
+        <meshStandardMaterial color="#b9bcc2" metalness={0.8} />
+      </mesh>
+      <group position={[0.38, 1.28, -0.28]} rotation={[0.5, 0, -0.3]}>
+        <mesh>
+          <sphereGeometry args={[0.5, 32, 10, 0, Math.PI * 2, 0, Math.PI / 3.4]} />
+          <meshStandardMaterial color="#f3f1ec" metalness={0.15} roughness={0.45} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[0, 0.47, 0]}>
+          <torusGeometry args={[0.41, 0.015, 6, 32]} />
+          <meshStandardMaterial color="#c9c7c0" />
+        </mesh>
+        {[0, 1, 2].map((k) => {
+          const a = (k / 3) * Math.PI * 2;
+          return (
+            <mesh key={k} position={[Math.cos(a) * 0.2, 0.62, Math.sin(a) * 0.2]} rotation={[Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6]}>
+              <cylinderGeometry args={[0.008, 0.008, 0.5, 4]} />
+              <meshStandardMaterial color="#9a9890" />
+            </mesh>
+          );
+        })}
+        <mesh position={[0, 0.8, 0]}>
+          <cylinderGeometry args={[0.05, 0.03, 0.12, 10]} />
+          <meshStandardMaterial color="#c9a24a" metalness={0.8} roughness={0.3} />
+        </mesh>
+      </group>
+      {/* star trackers + whip antennas */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 0.3, 0.62, 0.42]} rotation={[0.4, 0, 0]}>
+          <cylinderGeometry args={[0.06, 0.07, 0.16, 12]} />
+          <meshStandardMaterial color="#26282c" metalness={0.6} roughness={0.4} />
+        </mesh>
+      ))}
+      <mesh position={[-0.45, 0.85, -0.3]}>
+        <cylinderGeometry args={[0.008, 0.008, 0.6, 4]} />
+        <meshStandardMaterial color="#d0d0d0" />
+      </mesh>
+      {/* solar wings */}
+      <SolarWing side={1} />
+      <SolarWing side={-1} />
+      {/* steering thrusters */}
+      {[[0.5, 0.5], [-0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]].map(([x, z]) => <Thrusters key={`${x}${z}`} x={x!} z={z!} />)}
+      <NavLight position={[0, 0.58, 0.68]} color="#ff3b30" />
+      <NavLight position={[0, -0.3, -0.68]} color="#34c759" phase={2} />
       {legs &&
         [0, 1, 2, 3].map((k) => {
           const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
           return (
             <group key={k} rotation={[0, -a, 0]}>
-              <mesh position={[0.75, -0.75, 0]} rotation={[0, 0, 0.55]}>
-                <cylinderGeometry args={[0.04, 0.04, 1.1, 8]} />
-                <meshStandardMaterial color="#9a9890" metalness={0.6} />
+              <mesh position={[0.82, -0.78, 0]} rotation={[0, 0, 0.55]}>
+                <cylinderGeometry args={[0.045, 0.045, 1.1, 8]} />
+                <meshStandardMaterial color="#c9a24a" metalness={0.85} roughness={0.3} />
               </mesh>
-              <mesh position={[1.02, -1.22, 0]}>
-                <cylinderGeometry args={[0.16, 0.18, 0.05, 12]} />
-                <meshStandardMaterial color="#9a9890" />
+              <mesh position={[0.78, -0.95, 0]} rotation={[0, 0, -0.9]}>
+                <cylinderGeometry args={[0.025, 0.025, 0.55, 6]} />
+                <meshStandardMaterial color="#9a9890" metalness={0.7} />
+              </mesh>
+              <mesh position={[1.1, -1.27, 0]}>
+                <cylinderGeometry args={[0.17, 0.2, 0.05, 14]} />
+                <meshStandardMaterial color="#b9bcc2" metalness={0.6} />
               </mesh>
             </group>
           );
         })}
-      <mesh position={[0, -0.6, 0]}>
-        <coneGeometry args={[0.25, 0.35, 16, 1, true]} />
-        <meshStandardMaterial color={STEEL} metalness={0.8} side={THREE.DoubleSide} />
+      {/* main engine bell */}
+      <mesh position={[0, -0.72, 0]}>
+        <cylinderGeometry args={[0.13, 0.3, 0.38, 20, 1, true]} />
+        <meshStandardMaterial color="#3a3c40" metalness={0.9} roughness={0.35} side={THREE.DoubleSide} />
       </mesh>
       {flame && (
-        <group position={[0, -0.6, 0]} scale={0.6}>
+        <group position={[0, -0.9, 0]} scale={0.6}>
           <Flame active={flame} />
         </group>
       )}
@@ -607,7 +709,37 @@ function Spacecraft({ legs = true, flame }: { legs?: boolean; flame?: () => bool
   );
 }
 
+/** Drag on the 3D view to turn the spacecraft; it slowly drifts on its own when left alone. */
+function useDragSpin() {
+  const { gl } = useThree();
+  const st = useRef({ yaw: 0, pitch: 0, dragging: false, x: 0, y: 0, idle: 0 });
+  useEffect(() => {
+    const el = gl.domElement;
+    const down = (e: PointerEvent) => { Object.assign(st.current, { dragging: true, x: e.clientX, y: e.clientY }); };
+    const move = (e: PointerEvent) => {
+      const s = st.current;
+      if (!s.dragging) return;
+      s.yaw += (e.clientX - s.x) * 0.01;
+      s.pitch = THREE.MathUtils.clamp(s.pitch + (e.clientY - s.y) * 0.01, -1.2, 1.2);
+      s.x = e.clientX; s.y = e.clientY; s.idle = 0;
+    };
+    const up = () => { st.current.dragging = false; };
+    el.addEventListener("pointerdown", down);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    el.style.cursor = "grab";
+    return () => {
+      el.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      el.style.cursor = "";
+    };
+  }, [gl]);
+  return st;
+}
+
 function Cruise() {
+  const spin = useDragSpin();
   const earth = useRef<THREE.Group>(null);
   const moon = useRef<THREE.Mesh>(null);
   const craft = useRef<THREE.Group>(null);
@@ -625,7 +757,10 @@ function Cruise() {
       moon.current.rotation.y = t * 0.02;
     }
     if (craft.current) {
-      craft.current.rotation.y = t * 0.15;
+      const sp = spin.current;
+      if (!sp.dragging) { sp.idle += 1 / 60; if (sp.idle > 2) sp.yaw += 0.0025; }
+      craft.current.rotation.y = sp.yaw;
+      craft.current.rotation.x = sp.pitch;
       craft.current.position.y = Math.sin(t * 0.8) * 0.12;
     }
   });
@@ -716,7 +851,7 @@ function LandingScene() {
   useFrame(() => {
     const l = runtime.landing;
     if (!lander.current || !l) return;
-    lander.current.position.y = 1.25 + l.alt * 0.05;
+    lander.current.position.y = 1.3 + l.alt * 0.05;
     if (l.done && l.outcome === "crashed") lander.current.rotation.z = THREE.MathUtils.lerp(lander.current.rotation.z, 1.2, 0.08);
     else if (l.done && l.outcome === "hard") lander.current.rotation.z = 0.15;
   });
