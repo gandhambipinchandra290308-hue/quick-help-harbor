@@ -583,7 +583,7 @@ function SolarWing({ side }: { side: 1 | -1 }) {
           </mesh>
           <mesh position={[0, 0.017, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[0.74, 0.91]} />
-            <meshStandardMaterial map={cells} metalness={0.5} roughness={0.18} envMapIntensity={1.4} />
+            <meshStandardMaterial map={cells} metalness={0.15} roughness={0.35} emissive="#1a2c66" emissiveIntensity={0.35} />
           </mesh>
         </group>
       ))}
