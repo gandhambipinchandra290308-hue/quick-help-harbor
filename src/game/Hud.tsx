@@ -7,10 +7,8 @@ import { isMuted, setMuted, sfx, unlock } from "./audio";
 
 const CAPTIONS: Record<string, string[]> = {
   solar: [
-    "This is our Solar System: the Sun and eight planets.",
-    "Humans have sent spacecraft to every one of them.",
-    "But only one other world has ever had people walk on it…",
-    "Earth's Moon. 384,400 km away. That's where we're going.",
+    "Our Solar System is vast, but every mission begins at home.",
+    "Our destination: the Moon, 384,400 km from Earth.",
   ],
   earth: ["Earth. Every space mission starts here.", "Launch site: Satish Dhawan Space Centre, Sriharikota, India."],
   pad: ["The rocket was stacked in the Vehicle Assembly building.", "In Mission Control, engineers watch every number."],
