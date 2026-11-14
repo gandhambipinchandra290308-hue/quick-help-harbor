@@ -25,7 +25,7 @@ const planetPos = (i: number, t: number, out = new THREE.Vector3()) => {
 };
 
 const CAPTION_TIMES: Partial<Record<Phase, number[]>> = {
-  solar: [0, 6, 12, 18],
+  solar: [0, 2.5],
   earth: [0, 4.5],
   pad: [0, 4],
   launch: [0, 5, 8, 13, 16],
@@ -262,7 +262,7 @@ function SolarSystem() {
 
 // ---------- Earth close-up ----------
 
-const SRIHARIKOTA = { lat: 13.7, lon: 80.2 };
+const SRIHARIKOTA = { lat: 13.7199, lon: 80.2304 };
 
 function EarthGlobe({ radius = 5 }: { radius?: number }) {
   const group = useRef<THREE.Group>(null);
@@ -274,7 +274,7 @@ function EarthGlobe({ radius = 5 }: { radius?: number }) {
   const pulse = useRef<THREE.Mesh>(null);
   useFrame(() => {
     const t = runtime.phaseTime;
-    if (group.current) group.current.rotation.y = base - (9 - t) * 0.06;
+    if (group.current) group.current.rotation.y = base + t * 0.008;
     if (clouds.current) clouds.current.rotation.y = t * 0.01;
     if (pulse.current) pulse.current.scale.setScalar(1 + ((t * 1.5) % 1) * 2.5);
   });
@@ -302,7 +302,7 @@ function EarthGlobe({ radius = 5 }: { radius?: number }) {
           <meshBasicMaterial color="#ffb347" transparent opacity={0.35} />
         </mesh>
         <Html position={[0.25, 0.15, 0]} zIndexRange={[10, 0]}>
-          <div className="pointer-events-none whitespace-nowrap rounded-sm border border-primary/50 bg-background/70 px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-primary">Sriharikota · Launch site</div>
+          <div className="pointer-events-none whitespace-nowrap rounded-sm border border-primary/50 bg-background/70 px-2 py-0.5 font-mono text-[11px] uppercase tracking-widest text-primary">Satish Dhawan Space Centre · Sriharikota</div>
         </Html>
       </group>
     </group>
