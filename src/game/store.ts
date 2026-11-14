@@ -5,7 +5,7 @@ export type Phase = "home" | "brief" | "design" | "solar" | "earth" | "pad" | "l
 
 // Flow: home -> brief -> design -> (intro: solar -> earth -> pad -> launch) -> cruise -> site -> landing -> result
 export const INTRO_PHASES: Phase[] = ["solar", "earth", "pad", "launch"];
-export const DURATIONS: Partial<Record<Phase, number>> = { solar: 24, earth: 9, pad: 8, launch: 19 };
+export const DURATIONS: Partial<Record<Phase, number>> = { solar: 5, earth: 9, pad: 8, launch: 19 };
 export const NEXT: Partial<Record<Phase, Phase>> = { solar: "earth", earth: "pad", pad: "launch", launch: "cruise" };
 
 const BEST_KEY = "mission-moon-best-100"; // score is out of 100
